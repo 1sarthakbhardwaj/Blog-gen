@@ -12,17 +12,25 @@ class ArticleWorkflow:
     Main workflow class for article generation with backlinking optimization
     """
     
-    def __init__(self):
-        # Check if API key is set
-        if not os.getenv("OPENAI_API_KEY"):
-            raise ValueError(
-                "OpenAI API key not found. Please set OPENAI_API_KEY in your .env file. "
-                "You can get an API key from https://platform.openai.com/api-keys"
-            )
+    def __init__(self, api_key=None, model=None, provider=None):
+        # Use provided API key and model, or fall back to environment variables
+        if api_key and model:
+            self.api_key = api_key
+            self.model = model
+            self.provider = provider
+        else:
+            # Fallback to environment variables
+            if not os.getenv("OPENAI_API_KEY"):
+                raise ValueError(
+                    "API key not found. Please provide API key in the UI or set OPENAI_API_KEY in your .env file."
+                )
+            self.api_key = os.getenv("OPENAI_API_KEY")
+            self.model = "openai/gpt-4o-mini"
+            self.provider = "OpenAI"
         
         # Initialize LLM using CrewAI's LLM class
         self.llm = LLM(
-            model="openai/gpt-4o-mini",
+            model=self.model,
             temperature=0.7
         )
         

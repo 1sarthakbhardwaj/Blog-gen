@@ -58,6 +58,16 @@ st.markdown("""
         border-bottom: 2px solid #3498db;
     }
     
+    /* Radio button styling */
+    .stRadio>div>label>div[data-testid="stMarkdownContainer"] {
+        font-weight: 500;
+    }
+    
+    /* Selectbox styling */
+    .stSelectbox>div>div>div {
+        font-family: 'Inter', sans-serif;
+    }
+    
     /* Button */
     .stButton>button {
         width: 100%;
@@ -171,23 +181,79 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Check for API key with beautiful styling
-if not os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") == "your_openai_api_key_here":
+# API Key and Model Selection
+st.markdown('<div class="section-header">🔑 API Configuration</div>', unsafe_allow_html=True)
+
+# Provider selection
+provider = st.radio(
+    "Choose AI Provider:",
+    ["OpenAI (Recommended)", "Groq"],
+    horizontal=True,
+    help="Select your preferred AI provider"
+)
+
+# API Key input based on provider
+if provider == "OpenAI (Recommended)":
+    api_key = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        placeholder="sk-proj-xxxxxxxxxxxxxxxxxxxxx",
+        help="Get your API key from https://platform.openai.com/api-keys"
+    )
+    
+    # Model selection for OpenAI
+    openai_model = st.selectbox(
+        "OpenAI Model",
+        [
+            "openai/gpt-4o-mini (Recommended - Fast & Cost-effective)",
+            "openai/gpt-4o",
+            "openai/gpt-4-turbo",
+            "openai/gpt-3.5-turbo"
+        ],
+        help="GPT-4o-mini is recommended for best performance and cost"
+    )
+    
+    # Extract model name
+    selected_model = openai_model.split(" (")[0]
+    
+else:  # Groq
+    api_key = st.text_input(
+        "Groq API Key",
+        type="password",
+        placeholder="gsk_xxxxxxxxxxxxxxxxxxxxx",
+        help="Get your API key from https://console.groq.com/keys"
+    )
+    
+    # Model selection for Groq
+    groq_model = st.selectbox(
+        "Groq Model",
+        [
+            "groq/deepseek-r1-distill-llama-70b (Recommended - Latest & Powerful)",
+            "groq/llama-3.1-70b-versatile",
+            "groq/llama-3.1-8b-instant",
+            "groq/mixtral-8x7b-32768",
+            "groq/gemma-7b-it"
+        ],
+        help="DeepSeek R1 is the latest and most powerful model"
+    )
+    
+    # Extract model name
+    selected_model = groq_model.split(" (")[0]
+
+# Check if API key is provided
+if not api_key:
     st.markdown("""
         <div class="warning-box">
-            <h3>⚠️ OpenAI API Key Not Configured</h3>
-            <p>Please set your OpenAI API key in the `.env` file:</p>
-            <ol>
-                <li>Open the `.env` file in the project directory</li>
-                <li>Replace `your_openai_api_key_here` with your actual API key</li>
-                <li>Get your API key from: <a href="https://platform.openai.com/api-keys" style="color: white; text-decoration: underline;">https://platform.openai.com/api-keys</a></li>
-                <li>Save the file and refresh this page</li>
-            </ol>
-            <p><strong>Example:</strong><br>
-            <code>OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx</code></p>
+            <h3>⚠️ API Key Required</h3>
+            <p>Please enter your API key to use the AI Article Generator.</p>
         </div>
     """, unsafe_allow_html=True)
     st.stop()
+
+# Store in session state for use in agents
+st.session_state.api_key = api_key
+st.session_state.selected_model = selected_model
+st.session_state.provider = provider
 
 st.markdown("---")
 
@@ -275,6 +341,10 @@ with col2:
     
     st.markdown("---")
     
+    # Show selected configuration
+    if 'selected_model' in st.session_state:
+        st.info(f"🤖 **Selected Model:** {st.session_state.selected_model}")
+    
     # Generate button
     generate_button = st.button("🚀 Generate Article", disabled=st.session_state.processing)
 
@@ -310,8 +380,12 @@ if generate_button:
         progress_bar = st.progress(0)
         
         try:
-            # Initialize workflow
-            workflow = ArticleWorkflow()
+            # Initialize workflow with API configuration
+            workflow = ArticleWorkflow(
+                api_key=st.session_state.api_key,
+                model=st.session_state.selected_model,
+                provider=st.session_state.provider
+            )
             
             # Prepare input data
             input_data = {
