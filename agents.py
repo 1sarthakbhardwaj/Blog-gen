@@ -18,6 +18,12 @@ class ArticleWorkflow:
             self.api_key = api_key
             self.model = model
             self.provider = provider
+            
+            # Set the API key as environment variable based on provider
+            if "openai" in model.lower():
+                os.environ["OPENAI_API_KEY"] = api_key
+            elif "groq" in model.lower():
+                os.environ["GROQ_API_KEY"] = api_key
         else:
             # Fallback to environment variables
             if not os.getenv("OPENAI_API_KEY"):
@@ -28,10 +34,11 @@ class ArticleWorkflow:
             self.model = "openai/gpt-4o-mini"
             self.provider = "OpenAI"
         
-        # Initialize LLM using CrewAI's LLM class
+        # Initialize LLM using CrewAI's LLM class with API key
         self.llm = LLM(
             model=self.model,
-            temperature=0.7
+            temperature=0.7,
+            api_key=self.api_key
         )
         
         # Initialize agents
