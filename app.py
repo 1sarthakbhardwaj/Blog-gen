@@ -12,19 +12,19 @@ from agents import ArticleWorkflow
 st.set_page_config(
     page_title="AI Article Backlinking Generator",
     page_icon="📝",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Minimalist CSS
+# Dark/Light Mode CSS with theme detection
 st.markdown("""
     <style>
     /* Import Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
     
-    /* Main container */
+    /* Main container - adapts to theme */
     .main {
         padding: 2rem;
-        background: #f8f9fa;
         font-family: 'Inter', sans-serif;
     }
     
@@ -38,24 +38,22 @@ st.markdown("""
     .main-header h1 {
         font-size: 2.5rem;
         font-weight: 600;
-        color: #2c3e50;
         margin: 0;
     }
     
     .main-header p {
         font-size: 1rem;
-        color: #7f8c8d;
         margin-top: 0.5rem;
+        opacity: 0.8;
     }
     
     /* Section headers */
     .section-header {
         font-size: 1.2rem;
         font-weight: 500;
-        color: #2c3e50;
         padding: 0.75rem 0;
         margin: 1.5rem 0 1rem 0;
-        border-bottom: 2px solid #3498db;
+        border-bottom: 2px solid var(--primary-color);
     }
     
     /* Radio button styling */
@@ -71,40 +69,44 @@ st.markdown("""
     /* Button */
     .stButton>button {
         width: 100%;
-        background: #3498db;
+        background: var(--primary-color);
         color: white;
         padding: 0.75rem 2rem;
         font-size: 16px;
         font-weight: 500;
         border-radius: 8px;
         border: none;
-        transition: background 0.2s ease;
+        transition: all 0.2s ease;
     }
     
     .stButton>button:hover {
-        background: #2980b9;
+        background: var(--primary-color);
+        opacity: 0.9;
+        transform: translateY(-1px);
     }
     
-    /* Input styling */
+    /* Input styling - adapts to theme */
     .stTextInput>div>div>input,
     .stTextArea>div>div>textarea,
     .stNumberInput>div>div>input {
         border-radius: 6px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         padding: 0.5rem;
         font-family: 'Inter', sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-color);
     }
     
     .stTextInput>div>div>input:focus,
     .stTextArea>div>div>textarea:focus {
-        border-color: #3498db;
-        box-shadow: 0 0 0 1px #3498db;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 1px var(--primary-color);
     }
     
-    /* Processing box */
+    /* Processing box - adapts to theme */
     .processing-box {
-        background: #fff;
-        border: 2px solid #3498db;
+        background: var(--secondary-background-color);
+        border: 2px solid var(--primary-color);
         border-radius: 8px;
         padding: 2rem;
         text-align: center;
@@ -112,13 +114,12 @@ st.markdown("""
     }
     
     .processing-box h3 {
-        color: #2c3e50;
         margin: 0 0 1rem 0;
     }
     
     .processing-box p {
-        color: #7f8c8d;
         margin: 0;
+        opacity: 0.8;
     }
     
     /* Success box */
@@ -139,25 +140,34 @@ st.markdown("""
         margin: 1rem 0;
     }
     
-    /* Metric cards */
+    /* Info box */
+    .info-box {
+        background: var(--primary-color);
+        color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+    
+    /* Metric cards - adapts to theme */
     .metric-card {
-        background: white;
+        background: var(--secondary-background-color);
         padding: 1.5rem;
         border-radius: 8px;
         text-align: center;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--border-color);
         margin: 0.5rem;
     }
     
     .metric-value {
         font-size: 2rem;
         font-weight: 600;
-        color: #3498db;
+        color: var(--primary-color);
     }
     
     .metric-label {
         font-size: 0.875rem;
-        color: #7f8c8d;
+        opacity: 0.8;
         margin-top: 0.5rem;
     }
     
@@ -168,7 +178,53 @@ st.markdown("""
     
     /* Progress bar */
     .stProgress>div>div>div>div {
-        background: #3498db;
+        background: var(--primary-color);
+    }
+    
+    /* Dark mode specific adjustments */
+    @media (prefers-color-scheme: dark) {
+        .main-header h1 {
+            color: #ffffff;
+        }
+        
+        .main-header p {
+            color: #b0b0b0;
+        }
+        
+        .section-header {
+            color: #ffffff;
+        }
+        
+        .processing-box h3 {
+            color: #ffffff;
+        }
+        
+        .processing-box p {
+            color: #b0b0b0;
+        }
+    }
+    
+    /* Light mode specific adjustments */
+    @media (prefers-color-scheme: light) {
+        .main-header h1 {
+            color: #2c3e50;
+        }
+        
+        .main-header p {
+            color: #7f8c8d;
+        }
+        
+        .section-header {
+            color: #2c3e50;
+        }
+        
+        .processing-box h3 {
+            color: #2c3e50;
+        }
+        
+        .processing-box p {
+            color: #7f8c8d;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -343,7 +399,11 @@ with col2:
     
     # Show selected configuration
     if 'selected_model' in st.session_state:
-        st.info(f"🤖 **Selected Model:** {st.session_state.selected_model}")
+        st.markdown(f"""
+            <div class="info-box">
+                <strong>🤖 Selected Model:</strong> {st.session_state.selected_model}
+            </div>
+        """, unsafe_allow_html=True)
     
     # Generate button
     generate_button = st.button("🚀 Generate Article", disabled=st.session_state.processing)
