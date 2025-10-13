@@ -284,13 +284,13 @@ else:  # Groq
     groq_model = st.selectbox(
         "Groq Model",
         [
-            "groq/deepseek-r1-distill-llama-70b (Recommended - Latest & Powerful)",
-            "groq/llama-3.1-70b-versatile",
-            "groq/llama-3.1-8b-instant",
-            "groq/mixtral-8x7b-32768",
-            "groq/gemma-7b-it"
+            "groq/llama-3.3-70b-versatile (Recommended - Latest & Most Capable)",
+            "groq/llama-3.1-8b-instant (Fast & Efficient)",
+            "groq/mixtral-8x7b-32768 (High Context)",
+            "groq/gemma-7b-it (Google's Model)",
+            "groq/llama-3.1-405b-versatile (Most Powerful - Slower)"
         ],
-        help="DeepSeek R1 is the latest and most powerful model"
+        help="Llama 3.3 70B is the latest and most capable model with enhanced reasoning"
     )
     
     # Extract model name

@@ -35,11 +35,14 @@ class ArticleWorkflow:
             self.provider = "OpenAI"
         
         # Initialize LLM using CrewAI's LLM class with API key
-        self.llm = LLM(
-            model=self.model,
-            temperature=0.7,
-            api_key=self.api_key
-        )
+        try:
+            self.llm = LLM(
+                model=self.model,
+                temperature=0.7,
+                api_key=self.api_key
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to initialize LLM with model {self.model}: {str(e)}")
         
         # Initialize agents
         self.article_writer = self._create_article_writer()
@@ -276,6 +279,8 @@ class ArticleWorkflow:
             # Debug mode check
             if input_data.get('debug_mode', False):
                 print("DEBUG: Starting CrewAI workflow...")
+                print(f"DEBUG: Model: {self.model}")
+                print(f"DEBUG: Provider: {self.provider}")
                 print(f"DEBUG: Primary keyword: {input_data['primary_keyword']}")
                 print(f"DEBUG: LSI keywords: {input_data['lsi_keywords']}")
                 print(f"DEBUG: Article length: {len(input_data['main_article_content'])} characters")
