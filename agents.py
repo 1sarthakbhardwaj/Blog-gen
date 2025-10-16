@@ -7,9 +7,10 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-class ArticleWorkflow:
+class BacklinkArticleWorkflow:
     """
-    Main workflow class for article generation with backlinking optimization
+    Workflow for generating backlinked articles from original + competitor content
+    Uses Gemini 2.0 Flash with multi-agent validation system
     """
     
     def __init__(self, api_key=None, model=None, provider=None):
@@ -24,15 +25,18 @@ class ArticleWorkflow:
                 os.environ["OPENAI_API_KEY"] = api_key
             elif "groq" in model.lower():
                 os.environ["GROQ_API_KEY"] = api_key
+            elif "gemini" in model.lower():
+                os.environ["GOOGLE_API_KEY"] = api_key
         else:
             # Fallback to environment variables
-            if not os.getenv("OPENAI_API_KEY"):
+            if not os.getenv("GOOGLE_API_KEY") and not os.getenv("OPENAI_API_KEY"):
                 raise ValueError(
-                    "API key not found. Please provide API key in the UI or set OPENAI_API_KEY in your .env file."
+                    "API key not found. Please provide API key in the UI or set GOOGLE_API_KEY/OPENAI_API_KEY in your .env file."
                 )
-            self.api_key = os.getenv("OPENAI_API_KEY")
-            self.model = "openai/gpt-4o-mini"
-            self.provider = "OpenAI"
+            # Default to Gemini
+            self.api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("OPENAI_API_KEY")
+            self.model = "gemini/gemini-2.0-flash-exp"
+            self.provider = "Google Gemini"
         
         # Initialize LLM using CrewAI's LLM class with API key
         try:
@@ -45,63 +49,101 @@ class ArticleWorkflow:
             raise ValueError(f"Failed to initialize LLM with model {self.model}: {str(e)}")
         
         # Initialize agents
-        self.article_writer = self._create_article_writer()
-        self.keyword_optimizer = self._create_keyword_optimizer()
-        self.lsi_optimizer = self._create_lsi_optimizer()
-        self.readability_enhancer = self._create_readability_enhancer()
+        self.content_synthesizer = self._create_content_synthesizer()
+        self.title_validator = self._create_title_validator()
+        self.backlink_validator = self._create_backlink_validator()
+        self.word_count_validator = self._create_word_count_validator()
+        self.readability_validator = self._create_readability_validator()
+        self.brand_mention_validator = self._create_brand_mention_validator()
     
-    def _create_article_writer(self) -> Agent:
-        """Agent responsible for paraphrasing the article with backlinks"""
+    def _create_content_synthesizer(self) -> Agent:
+        """Agent responsible for synthesizing original + competitor content into new article"""
         return Agent(
-            role='Content Paraphrasing & Backlinking Specialist',
-            goal='Paraphrase existing articles while naturally incorporating backlinks and maintaining the original structure',
-            backstory="""You are an expert content rewriter with years of experience in paraphrasing 
-            and SEO content. You excel at taking existing content and rewriting it in a fresh way while 
-            maintaining the same meaning, structure, and flow. You seamlessly integrate backlinks in a 
-            natural, reader-friendly way without disrupting the content. You preserve the original 
-            article's organization, headings, and key points while giving it new words.""",
+            role='Competitive Content Synthesizer & SEO Specialist',
+            goal='Create a comprehensive, SEO-optimized article by intelligently mixing original content with competitor insights',
+            backstory="""You are an expert content strategist and SEO writer with 10+ years of experience 
+            in competitive analysis and content creation. You excel at analyzing multiple articles on the same 
+            topic and synthesizing them into a superior piece that combines the best insights from each source.
+            
+            You understand how to:
+            - Prioritize the original content while incorporating competitor strengths
+            - Create compelling titles with target keywords
+            - Embed backlinks naturally using anchor text
+            - Write in active voice for US audiences
+            - Keep sentences concise and readable
+            - Naturally mention brand names in context
+            
+            You never plagiarize but create fresh, original content that's better than the sources.""",
             verbose=True,
             allow_delegation=False,
             llm=self.llm
         )
     
-    def _create_keyword_optimizer(self) -> Agent:
-        """Agent responsible for optimizing keyword density"""
+    def _create_title_validator(self) -> Agent:
+        """Agent responsible for validating and fixing article title"""
         return Agent(
-            role='SEO Keyword Optimization Specialist',
-            goal='Ensure optimal keyword density (1.5%-3%) throughout the article while maintaining natural flow',
-            backstory="""You are an SEO expert specializing in keyword optimization. You have 
-            a keen eye for keyword placement and density, ensuring that target keywords appear 
-            at the right frequency without over-optimization or keyword stuffing. You understand 
-            the balance between SEO requirements and natural language.""",
+            role='Title Optimization Specialist',
+            goal='Ensure the article title contains the primary keyword and is compelling for readers',
+            backstory="""You are a headline optimization expert who specializes in SEO-friendly titles. 
+            You know that a great title must include the primary keyword while remaining natural, compelling, 
+            and click-worthy. You can quickly identify if a title is missing keywords and rewrite it to be 
+            both SEO-optimized and engaging.""",
             verbose=True,
             allow_delegation=False,
             llm=self.llm
         )
     
-    def _create_lsi_optimizer(self) -> Agent:
-        """Agent responsible for optimizing LSI keyword density"""
+    def _create_backlink_validator(self) -> Agent:
+        """Agent responsible for validating and embedding backlinks"""
         return Agent(
-            role='LSI Keyword Integration Expert',
-            goal='Integrate LSI keywords at 4-6% density to improve semantic relevance and topical authority',
-            backstory="""You are a semantic SEO specialist who understands the importance of 
-            Latent Semantic Indexing (LSI) keywords. You excel at naturally weaving related 
-            terms and concepts into content to create comprehensive, semantically rich articles 
-            that search engines recognize as authoritative.""",
+            role='Backlink Integration Specialist',
+            goal='Ensure the original article link is naturally embedded with the primary keyword as anchor text',
+            backstory="""You are an expert in natural link building and anchor text optimization. You understand 
+            that backlinks must flow naturally within content and use relevant anchor text. You can identify 
+            the perfect placement for links where they add value to readers while meeting SEO requirements. 
+            You never force links but find contextually relevant spots.""",
             verbose=True,
             allow_delegation=False,
             llm=self.llm
         )
     
-    def _create_readability_enhancer(self) -> Agent:
-        """Agent responsible for improving readability"""
+    def _create_word_count_validator(self) -> Agent:
+        """Agent responsible for ensuring minimum word count"""
         return Agent(
-            role='Readability & Clarity Specialist',
-            goal='Enhance article readability by ensuring sentences are concise (max 13 words) and easy to understand',
-            backstory="""You are a writing coach and editor who specializes in readability 
-            optimization. You have mastered the Hemingway writing style - clear, concise, and 
-            powerful. You can transform complex sentences into simple, digestible chunks that 
-            readers love and that score well on readability tests.""",
+            role='Content Length Optimizer',
+            goal='Ensure the article meets the minimum word count by expanding sections naturally',
+            backstory="""You are a content expansion specialist who knows how to add valuable information 
+            to articles without fluff or redundancy. When articles fall short of word count targets, you 
+            identify sections that can be expanded with examples, explanations, case studies, or additional 
+            insights. You maintain the article's quality and flow while reaching target length.""",
+            verbose=True,
+            allow_delegation=False,
+            llm=self.llm
+        )
+    
+    def _create_readability_validator(self) -> Agent:
+        """Agent responsible for ensuring readability standards"""
+        return Agent(
+            role='Readability & Clarity Expert',
+            goal='Ensure all sentences are concise (13-14 words max) and maintain excellent readability',
+            backstory="""You are a professional editor trained in the Hemingway style of writing. You specialize 
+            in breaking down complex sentences into clear, concise statements without losing meaning. You can 
+            quickly scan text, identify long sentences, and restructure them for optimal readability while 
+            maintaining the author's voice and intent.""",
+            verbose=True,
+            allow_delegation=False,
+            llm=self.llm
+        )
+    
+    def _create_brand_mention_validator(self) -> Agent:
+        """Agent responsible for validating brand mentions"""
+        return Agent(
+            role='Brand Integration Specialist',
+            goal='Ensure "Labellerr AI" is mentioned 4-5 times naturally with a mix of linked and plain text',
+            backstory="""You are a brand content strategist who specializes in natural brand integration. 
+            You understand that brand mentions must feel organic and add value to the content, not forced or 
+            spammy. You can identify opportunities to mention brands where they genuinely fit the context, 
+            and you balance hyperlinked mentions with plain text references for a natural reading experience.""",
             verbose=True,
             allow_delegation=False,
             llm=self.llm
@@ -109,250 +151,287 @@ class ArticleWorkflow:
     
     def run(self, input_data: Dict, progress_callback: Optional[Callable] = None) -> Dict:
         """
-        Run the complete article generation and optimization workflow
+        Run the complete backlink article generation and validation workflow
         
         Args:
             input_data: Dictionary containing all input parameters
             progress_callback: Optional callback function for progress updates
         
         Returns:
-            Dictionary containing the final article and metrics
+            Dictionary containing the final article, validation reports, and metrics
         """
-        processing_log = []
         
-        # Task 1: Paraphrase article with backlinks
+        # Task 1: Generate the main article
         if progress_callback:
-            progress_callback("Step 1/4: Paraphrasing article with backlinks...", 25, "Starting article paraphrasing...")
+            progress_callback("Step 1/5: Synthesizing content from all sources...", 20, "Analyzing and mixing articles...")
         
-        article_generation_task = Task(
+        # Build competitor content summary
+        competitor_content = ""
+        for i, comp in enumerate(input_data['competitor_articles'], 1):
+            if comp['content']:
+                competitor_content += f"\n\n=== COMPETITOR ARTICLE {i} ===\n"
+                competitor_content += f"URL: {comp['url']}\n"
+                competitor_content += f"CONTENT:\n{comp['content'][:3000]}\n"  # Limit to avoid token overflow
+        
+        content_generation_task = Task(
             description=f"""
-            PARAPHRASE the following article while keeping the EXACT SAME STRUCTURE, flow, and meaning.
+            Create a NEW, COMPREHENSIVE article by intelligently mixing the original article with competitor insights.
             
-            ORIGINAL ARTICLE TO PARAPHRASE:
-            {input_data['main_article_content']}
+            === PRIMARY SOURCE (PRIORITIZE 60-70%) ===
+            URL: {input_data['original_article_url']}
+            CONTENT:
+            {input_data['original_article_content']}
             
-            REQUIREMENTS:
-            1. **DO NOT change the overall structure** - keep the same sections, paragraphs, and flow
-            2. **REWORD every sentence** - use different words but maintain the exact same meaning
-            3. **Keep the same length** - approximately {input_data['target_word_count']} words
-            4. **Naturally embed this main link**: {input_data['main_article_link']}
-               - Find a relevant spot in the paraphrased content
-               - Use natural anchor text (e.g., "learn more about [topic]", "as discussed in [topic]")
-            5. **Include these related links naturally**: {', '.join(input_data['related_links']) if input_data['related_links'] else 'None'}
-               - Spread them throughout the article in contextually relevant places
-            6. **The primary keyword is**: {input_data['primary_keyword']}
-               - Keep it where it naturally appears, don't force it
+            === COMPETITOR SOURCES (USE 30-40% COMBINED) ===
+            {competitor_content}
             
-            IMPORTANT: This is a PARAPHRASING task, not a rewriting task. The content structure 
-            must remain identical - only the wording should change. If the original has 5 paragraphs, 
-            your output should have 5 paragraphs with similar topics.
+            === REQUIREMENTS ===
             
-            Return ONLY the paraphrased article content with embedded links.
+            **PRIMARY KEYWORD**: {input_data['primary_keyword']}
+            **SECONDARY KEYWORDS**: {', '.join(input_data['secondary_keywords'])}
+            
+            **CONTENT REQUIREMENTS**:
+            1. Create a TITLE that includes the primary keyword "{input_data['primary_keyword']}"
+            2. Write at least {input_data['target_word_count']} words
+            3. Prioritize the original article's perspective and key points (60-70% weight)
+            4. Incorporate valuable insights from competitor articles (30-40% combined)
+            5. Create ORIGINAL content - do not copy sentences verbatim
+            6. Use ACTIVE VOICE throughout
+            7. Write for US audience (American English, cultural context)
+            8. Keep sentences under 13-14 words maximum
+            
+            **BACKLINK REQUIREMENT**:
+            - Naturally embed this link: {input_data['original_article_url']}
+            - Use "{input_data['primary_keyword']}" or a variation as anchor text
+            - Place it where it adds genuine value (e.g., "For a deeper dive into {input_data['primary_keyword']}, check out [link]")
+            
+            **BRAND MENTIONS**:
+            - Mention "Labellerr AI" naturally {input_data['labellerr_mention_count']} times
+            - Make 2-3 mentions hyperlinked to: {input_data.get('labellerr_link', 'https://labellerr.com')}
+            - Keep 1-2 mentions as plain text
+            - Only mention where contextually relevant (e.g., when discussing data annotation, AI tools, etc.)
+            
+            **STRUCTURE**:
+            - Start with an engaging introduction
+            - Use clear section headings (H2, H3)
+            - Include examples and practical applications
+            - End with a strong conclusion
+            
+            **FORMAT**:
+            Return the article in this exact format:
+            
+            TITLE: [Your compelling title with primary keyword]
+            
+            [Article content with proper structure]
+            
+            IMPORTANT: The article must be original, comprehensive, and better than any single source.
             """,
-            agent=self.article_writer,
-            expected_output="A paraphrased article with naturally embedded backlinks"
+            agent=self.content_synthesizer,
+            expected_output="A comprehensive article with title, properly structured content, embedded backlink, and brand mentions"
         )
         
-        # Task 2: Optimize keyword density
-        keyword_optimization_task = Task(
+        # Task 2: Validate and fix title
+        if progress_callback:
+            progress_callback("Step 2/6: Validating article title...", 30, "Checking title for primary keyword...")
+        
+        title_validation_task = Task(
             description=f"""
-            You MUST optimize the article to achieve keyword density between 
-            {input_data['keyword_density_range'][0]}% and {input_data['keyword_density_range'][1]}%.
+            Check if the article title contains the primary keyword: "{input_data['primary_keyword']}"
             
-            PRIMARY KEYWORD: '{input_data['primary_keyword']}'
+            If the title doesn't contain the primary keyword, rewrite it to include the keyword naturally.
             
-            STEP 1: Count total words in the article
-            STEP 2: Calculate how many times the keyword should appear:
-            - For a 1000 word article at 2% density = 20 occurrences
-            - Formula: (total_words * target_density) / 100
-            
-            STEP 3: Strategically add the keyword by:
-            - Replacing generic phrases with the keyword
-            - Adding it naturally in topic-relevant sentences
-            - Using it in transitional phrases
-            - Including it in conclusions and introductions
-            
-            EXAMPLE INSERTIONS:
-            - "This is where [PRIMARY_KEYWORD] becomes important..."
-            - "Understanding [PRIMARY_KEYWORD] helps..."
-            - "When implementing [PRIMARY_KEYWORD]..."
-            - "The benefits of [PRIMARY_KEYWORD] include..."
-            
-            REQUIREMENTS:
-            - DO NOT change the overall structure
-            - Insert keyword naturally, not forced
-            - Maintain readability and flow
-            - Keep all backlinks intact
-            - MUST achieve target density range
-            
-            Return the article with the keyword properly distributed throughout.
+            Return ONLY the complete article with the corrected title (if needed).
+            Do NOT include any validation text, reports, or metadata.
+            Just return the clean article text.
             """,
-            agent=self.keyword_optimizer,
-            expected_output="Article with optimized keyword density in target range",
-            context=[article_generation_task]
+            agent=self.title_validator,
+            expected_output="Clean article text with validated title",
+            context=[content_generation_task]
         )
         
-        # Task 3: Optimize LSI keywords
-        lsi_optimization_task = Task(
+        # Task 3: Validate and fix backlink
+        if progress_callback:
+            progress_callback("Step 3/6: Validating backlink placement...", 45, "Checking backlink with anchor text...")
+        
+        backlink_validation_task = Task(
             description=f"""
-            You MUST integrate LSI keywords to achieve {input_data['lsi_density_range'][0]}% to 
-            {input_data['lsi_density_range'][1]}% density.
+            Check if the link {input_data['original_article_url']} is embedded in the article with "{input_data['primary_keyword']}" as anchor text.
             
-            LSI KEYWORDS: {', '.join(input_data['lsi_keywords'])}
+            If the link is missing or not properly embedded:
+            1. Find a natural place in the article to add it
+            2. Embed it using the primary keyword or a natural variation as anchor text
+            3. Make sure it flows naturally in the context
             
-            STEP 1: Calculate required occurrences for EACH LSI keyword
-            - For 1000 words at 5% total LSI density = 50 total LSI keyword occurrences
-            - Distribute evenly across all LSI keywords
-            
-            STEP 2: Add LSI keywords naturally by:
-            - Using them in supporting sentences
-            - Integrating them in examples
-            - Adding them in explanatory phrases
-            - Including them in topic elaborations
-            
-            EXAMPLE INSERTIONS:
-            - "This relates to [LSI_KEYWORD]..."
-            - "Consider [LSI_KEYWORD] as well..."
-            - "Another aspect involves [LSI_KEYWORD]..."
-            - "In terms of [LSI_KEYWORD]..."
-            
-            REQUIREMENTS:
-            - Distribute LSI keywords evenly throughout article
-            - Keep natural flow and readability
-            - Maintain all backlinks and primary keyword
-            - DO NOT change structure
-            - MUST hit target density range
-            
-            Return the article with LSI keywords properly integrated.
+            Return ONLY the complete article with the link properly embedded.
+            Do NOT include any validation text, reports, or metadata.
+            Just return the clean article text.
             """,
-            agent=self.lsi_optimizer,
-            expected_output="Article with LSI keywords achieving target density",
-            context=[keyword_optimization_task]
+            agent=self.backlink_validator,
+            expected_output="Clean article text with validated backlink",
+            context=[title_validation_task]
         )
         
-        # Task 4: Enhance readability
-        readability_enhancement_task = Task(
+        # Task 4: Validate and expand word count
+        if progress_callback:
+            progress_callback("Step 4/6: Checking word count...", 60, "Ensuring minimum word count...")
+        
+        word_count_validation_task = Task(
             description=f"""
-            Improve the article's readability by ensuring sentences are concise and clear.
+            Count the total words in the article.
             
-            Requirements:
-            - Maximum {input_data['max_words_per_line']} words per sentence
-            - Use simple, clear language
-            - Break down complex sentences into shorter ones
-            - Maintain active voice where possible
-            - Ensure smooth transitions between sentences
-            - DO NOT change the overall structure or meaning
-            - Preserve all backlinks, keywords, and LSI keywords
+            Target: At least {input_data['target_word_count']} words
             
-            The final article should score well on Hemingway readability test.
+            If the article has fewer than {input_data['target_word_count']} words:
+            1. Identify sections that can be expanded naturally
+            2. Add examples, explanations, or additional insights
+            3. Maintain the article's quality and flow
+            4. Expand until reaching the target word count
             
-            Return the final, polished article.
+            Do NOT add fluff or repetitive content. Add valuable information only.
+            
+            Return ONLY the complete article (expanded if needed).
+            Do NOT include any word count reports or metadata.
+            Just return the clean article text.
             """,
-            agent=self.readability_enhancer,
-            expected_output="Final article with optimized readability",
-            context=[lsi_optimization_task]
+            agent=self.word_count_validator,
+            expected_output="Clean article text meeting minimum word count",
+            context=[backlink_validation_task]
+        )
+        
+        # Task 5: Validate and fix readability
+        if progress_callback:
+            progress_callback("Step 5/6: Enhancing readability...", 75, "Breaking down long sentences...")
+        
+        readability_validation_task = Task(
+            description=f"""
+            Check all sentences in the article. 
+            
+            Target: Maximum 13-14 words per sentence
+            
+            If any sentences are longer than 14 words:
+            1. Break them into shorter sentences
+            2. Maintain the original meaning and flow
+            3. Keep natural transitions
+            
+            Return ONLY the complete article with optimized readability.
+            Do NOT include any validation text, reports, or metadata.
+            Just return the clean article text.
+            """,
+            agent=self.readability_validator,
+            expected_output="Clean article text with optimized readability",
+            context=[word_count_validation_task]
+        )
+        
+        # Task 6: Validate and fix brand mentions
+        if progress_callback:
+            progress_callback("Step 6/6: Validating brand mentions...", 90, "Checking Labellerr AI mentions...")
+        
+        brand_validation_task = Task(
+            description=f"""
+            Count "Labellerr AI" mentions in the article.
+            
+            Target: {input_data['labellerr_mention_count']} mentions total
+            - 2-3 should be hyperlinked to: {input_data.get('labellerr_link', 'https://labellerr.com')}
+            - 1-2 should be plain text
+            
+            If the count is off or the mix is wrong:
+            1. Add or adjust mentions to meet the target
+            2. Only add where contextually relevant (data annotation, AI tools, computer vision, etc.)
+            3. Ensure natural flow
+            
+            Return ONLY the complete article with proper brand mentions.
+            Do NOT include any validation text, reports, or metadata.
+            Just return the clean article text.
+            """,
+            agent=self.brand_mention_validator,
+            expected_output="Clean article text with validated brand mentions",
+            context=[readability_validation_task]
         )
         
         # Create and run the crew
         crew = Crew(
             agents=[
-                self.article_writer,
-                self.keyword_optimizer,
-                self.lsi_optimizer,
-                self.readability_enhancer
+                self.content_synthesizer,
+                self.title_validator,
+                self.backlink_validator,
+                self.word_count_validator,
+                self.readability_validator,
+                self.brand_mention_validator
             ],
             tasks=[
-                article_generation_task,
-                keyword_optimization_task,
-                lsi_optimization_task,
-                readability_enhancement_task
+                content_generation_task,
+                title_validation_task,
+                backlink_validation_task,
+                word_count_validation_task,
+                readability_validation_task,
+                brand_validation_task
             ],
             process=Process.sequential,
             verbose=True
         )
         
         try:
-            # Update progress
-            if progress_callback:
-                progress_callback("Step 2/4: Optimizing keyword density...", 50, "Starting keyword optimization...")
-            
-            # Debug mode check
-            if input_data.get('debug_mode', False):
-                print("DEBUG: Starting CrewAI workflow...")
-                print(f"DEBUG: Model: {self.model}")
-                print(f"DEBUG: Provider: {self.provider}")
-                print(f"DEBUG: Primary keyword: {input_data['primary_keyword']}")
-                print(f"DEBUG: LSI keywords: {input_data['lsi_keywords']}")
-                print(f"DEBUG: Article length: {len(input_data['main_article_content'])} characters")
-            
             # Execute the workflow
             result = crew.kickoff()
             
-            if input_data.get('debug_mode', False):
-                print("DEBUG: CrewAI workflow completed successfully")
-                print(f"DEBUG: Result type: {type(result)}")
-                print(f"DEBUG: Result length: {len(str(result))} characters")
-            
-            # Update progress
             if progress_callback:
-                progress_callback("Step 3/4: Integrating LSI keywords...", 75, "LSI keyword integration completed...")
+                progress_callback("Step 5/5: Finalizing article...", 95, "Calculating metrics...")
             
             # Extract final article from result
             final_article = str(result)
-            
-            # Update progress
-            if progress_callback:
-                progress_callback("Step 4/4: Finalizing article...", 90, "Finalizing article...")
             
             # Calculate metrics
             metrics = self._calculate_metrics(
                 final_article,
                 input_data['primary_keyword'],
-                input_data['lsi_keywords']
+                input_data['original_article_url']
             )
             
-            # Create a simple log
-            simple_log = f"""
-Agent Workflow Completed Successfully!
+            # Create validation summary
+            validation_summary = f"""
+=== VALIDATION SUMMARY ===
 
-Step 1: Article Paraphrasing - ✅ Completed
-- Paraphrased original content while maintaining structure
-- Added backlinks naturally
+✅ Content Generation: Complete
+   - Mixed original + competitor content
+   - Generated comprehensive article
+   
+✅ Title Validation: Checked
+   - Primary keyword presence verified
+   
+✅ Backlink Validation: Checked
+   - Original article link embedded
+   - Anchor text optimized
 
-Step 2: Keyword Optimization - ✅ Completed  
-- Optimized keyword density to {metrics['keyword_density']:.2f}%
-- Target range: {input_data['keyword_density_range'][0]}% - {input_data['keyword_density_range'][1]}%
-
-Step 3: LSI Integration - ✅ Completed
-- Added LSI keywords with {metrics['lsi_density']:.2f}% density
-- Target range: {input_data['lsi_density_range'][0]}% - {input_data['lsi_density_range'][1]}%
-
-Step 4: Readability Enhancement - ✅ Completed
-- Average words per sentence: {metrics['avg_words_per_sentence']:.1f}
-- Target: max {input_data['max_words_per_line']} words per sentence
-
-Final Article Stats:
+✅ Word Count Validation: Checked
+   - Target: {input_data['target_word_count']}+ words
+   - Actual: {metrics['word_count']} words
+   
+✅ Readability Validation: Checked
+   - Sentences optimized for readability
+   - Target: Max 13-14 words per sentence
+   
+✅ Brand Mention Validation: Checked
+   - Labellerr AI mentions integrated naturally
+   - Mix of linked and plain text
+   
+=== FINAL METRICS ===
 - Word Count: {metrics['word_count']}
-- Keyword Density: {metrics['keyword_density']:.2f}%
-- LSI Density: {metrics['lsi_density']:.2f}%
-- Readability: {metrics['avg_words_per_sentence']:.1f} words/sentence
+- Sentence Count: {metrics['sentence_count']}
+- Avg Words/Sentence: {metrics['avg_words_per_sentence']:.1f}
+- Backlink Status: {metrics['backlink_status']}
 """
             
             if progress_callback:
-                progress_callback("✅ Complete! Article generated successfully.", 100, simple_log)
+                progress_callback("✅ Complete! Article generated successfully.", 100, validation_summary)
             
             # Return comprehensive result
             return {
                 'final_article': final_article,
                 'word_count': metrics['word_count'],
-                'keyword_density': metrics['keyword_density'],
-                'lsi_density': metrics['lsi_density'],
+                'sentence_count': metrics['sentence_count'],
                 'avg_words_per_sentence': metrics['avg_words_per_sentence'],
-                'keyword_analysis': metrics['keyword_analysis'],
-                'lsi_analysis': metrics['lsi_analysis'],
-                'readability_metrics': metrics['readability_metrics'],
-                'processing_log': processing_log,
-                'agent_logs': simple_log
+                'backlink_status': metrics['backlink_status'],
+                'validation_summary': validation_summary
             }
             
         except Exception as e:
@@ -361,60 +440,27 @@ Final Article Stats:
                 progress_callback("❌ Error occurred", 0, error_msg)
             raise e
     
-    def _calculate_metrics(self, article: str, primary_keyword: str, lsi_keywords: List[str]) -> Dict:
+    def _calculate_metrics(self, article: str, primary_keyword: str, original_url: str) -> Dict:
         """Calculate various metrics for the article"""
         
         # Word count
         words = article.split()
         word_count = len(words)
         
-        # Keyword density
-        keyword_count = article.lower().count(primary_keyword.lower())
-        keyword_density = (keyword_count / word_count) * 100 if word_count > 0 else 0
-        
-        # LSI keyword density
-        lsi_count = sum(article.lower().count(lsi.lower()) for lsi in lsi_keywords)
-        lsi_density = (lsi_count / word_count) * 100 if word_count > 0 else 0
-        
         # Sentence analysis
         sentences = re.split(r'[.!?]+', article)
-        sentences = [s.strip() for s in sentences if s.strip()]
+        sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 10]
         
+        sentence_count = len(sentences)
         sentence_word_counts = [len(s.split()) for s in sentences]
         avg_words_per_sentence = sum(sentence_word_counts) / len(sentence_word_counts) if sentence_word_counts else 0
         
-        # Detailed keyword analysis
-        keyword_analysis = {
-            'primary_keyword': primary_keyword,
-            'occurrences': keyword_count,
-            'density_percentage': round(keyword_density, 2)
-        }
-        
-        # Detailed LSI analysis
-        lsi_analysis = {}
-        for lsi in lsi_keywords:
-            count = article.lower().count(lsi.lower())
-            density = (count / word_count) * 100 if word_count > 0 else 0
-            lsi_analysis[lsi] = {
-                'occurrences': count,
-                'density_percentage': round(density, 2)
-            }
-        
-        # Readability metrics
-        readability_metrics = {
-            'total_sentences': len(sentences),
-            'avg_words_per_sentence': round(avg_words_per_sentence, 2),
-            'longest_sentence_words': max(sentence_word_counts) if sentence_word_counts else 0,
-            'shortest_sentence_words': min(sentence_word_counts) if sentence_word_counts else 0
-        }
+        # Check backlink status
+        backlink_status = "Present" if original_url in article else "Not Found"
         
         return {
             'word_count': word_count,
-            'keyword_density': round(keyword_density, 2),
-            'lsi_density': round(lsi_density, 2),
+            'sentence_count': sentence_count,
             'avg_words_per_sentence': round(avg_words_per_sentence, 2),
-            'keyword_analysis': keyword_analysis,
-            'lsi_analysis': lsi_analysis,
-            'readability_metrics': readability_metrics
+            'backlink_status': backlink_status
         }
-

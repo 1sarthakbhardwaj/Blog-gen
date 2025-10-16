@@ -1,190 +1,110 @@
-# 📝 AI Article Backlinking Generator
+# 🔗 Backlink Article Generator
 
-A powerful Streamlit application powered by CrewAI that automates the creation of SEO-optimized articles with natural backlinking, keyword optimization, and enhanced readability.
+AI-powered tool that generates SEO-optimized articles by analyzing your content + competitor articles, with natural backlinks and brand mentions.
 
-## 🌟 Features
+## Features
 
-- **Intelligent Article Generation**: Creates unique articles similar to your reference content
-- **Natural Backlink Integration**: Seamlessly embeds your main article link and related links
-- **Keyword Optimization**: Maintains optimal keyword density (1.5% - 3%)
-- **LSI Keyword Integration**: Adds semantic keywords at 4-6% density
-- **Readability Enhancement**: Ensures sentences are concise (max 13 words) for Hemingway test
-- **Real-time Metrics**: Tracks word count, keyword density, and readability scores
-- **Multi-Agent Workflow**: Uses specialized AI agents for each optimization task
+- **Content Synthesis**: Mix your article (60-70%) with 3 competitor articles (30-40%)
+- **Multi-Agent Validation**: 5 AI agents ensure quality (Title, Backlink, Readability, Brand Mentions)
+- **Natural Backlinks**: Embed your article link with keyword anchor text
+- **Brand Integration**: Add "Labellerr AI" mentions naturally (4-5 times)
+- **Web Scraping**: Optional automatic content extraction from URLs
+- **Multiple AI Providers**: Gemini 2.0 Flash (recommended), OpenAI, Groq
 
-## 🤖 AI Agents
+## Quick Start
 
-The application uses 4 specialized CrewAI agents:
-
-1. **Content Writer & Backlinking Specialist**: Generates the initial article with naturally embedded backlinks
-2. **SEO Keyword Optimization Specialist**: Optimizes primary keyword density
-3. **LSI Keyword Integration Expert**: Integrates semantic keywords for topical authority
-4. **Readability & Clarity Specialist**: Enhances readability with concise sentences
-
-## 🚀 Installation
-
-### Prerequisites
-
-- Python 3.8 or higher
-- OpenAI API key (or other LLM provider)
-
-### Quick Setup
-
-1. Install dependencies:
+1. **Install dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Run the setup script:
-```bash
-python setup.py
-```
-   The setup script will guide you through creating the `.env` file and verifying dependencies.
+2. **Get API Key:**
+   - **Gemini** (Recommended): https://aistudio.google.com/app/apikey
+   - **OpenAI**: https://platform.openai.com/api-keys
+   - **Groq**: https://console.groq.com/keys
 
-### Manual Setup
-
-Alternatively, you can set up manually:
-
-1. Create a `.env` file in the project root:
-```bash
-touch .env
-```
-
-2. Open `.env` and add your OpenAI API key:
-```
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
-```
-
-3. Get your API key from: https://platform.openai.com/api-keys
-
-## 💻 Usage
-
-1. Start the Streamlit app:
+3. **Run the app:**
 ```bash
 streamlit run app.py
 ```
 
-2. Open your browser (usually automatically opens to `http://localhost:8501`)
+4. **In the UI:**
+   - Enter your API key
+   - Add primary keyword & secondary keywords
+   - Paste your original article (URL + content)
+   - Add 3 competitor articles (URL + content)
+   - Click "Generate Backlinked Article"
 
-3. Fill in the input form:
-   - **Primary Keyword**: Your main business unit keyword
-   - **LSI Keywords**: Add related semantic keywords
-   - **Main Article Content**: Paste reference content for style/structure
-   - **Main Article Link**: The primary link to backlink
-   - **Related Links**: Additional links to embed naturally
+## Input Requirements
 
-4. Configure generation settings:
-   - Keyword density range (default: 1.5% - 3%)
-   - LSI density range (default: 4% - 6%)
-   - Max words per sentence (default: 13)
-   - Target word count
+- **Primary Keyword**: Your target SEO keyword
+- **Secondary Keywords**: Related terms (comma-separated)
+- **Original Article**: Your article to backlink (URL + full content)
+- **Competitor Articles**: 3 articles (URLs + full content)
+- **Settings**: Word count, brand mention count
 
-5. Click "🚀 Generate Article" and wait for the AI agents to work
+## Output
 
-6. Review the generated article with metrics and download if satisfied
+- **Generated Article**: New comprehensive article (1000+ words)
+- **Validation Reports**: What each agent checked/fixed
+- **Metrics**: Word count, sentences, backlink status, brand mentions
+- **Download**: Save as TXT file
 
-## 📊 Output Metrics
+## AI Agents
 
-The app provides comprehensive metrics:
+1. **Content Synthesizer**: Creates new article from 4 sources
+2. **Title Validator**: Ensures primary keyword in title
+3. **Backlink Validator**: Checks link embedding with proper anchor
+4. **Readability Validator**: Ensures sentences under 13-14 words
+5. **Brand Mention Validator**: Verifies Labellerr AI mentions (4-5x)
 
-- **Word Count**: Total words in the article
-- **Keyword Density**: Percentage of primary keyword usage
-- **LSI Density**: Percentage of LSI keyword usage
-- **Avg Words/Sentence**: Average sentence length for readability
-- **Detailed Analysis**: Per-keyword occurrence and density
-- **Readability Metrics**: Sentence statistics for Hemingway test
+## Requirements
 
-## 🔧 Configuration
-
-### Using Different LLM Models
-
-By default, the app uses OpenAI's GPT-4o-mini. To change the model, edit `agents.py`:
-
-```python
-self.llm = LLM(
-    model="openai/gpt-4",  # or "openai/gpt-3.5-turbo", etc.
-    temperature=0.7
-)
+```
+streamlit>=1.28.0
+crewai>=0.28.0
+python-dotenv>=1.0.0
+google-generativeai>=0.3.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+groq>=0.4.1
 ```
 
-### For Other LLM Providers
+## Article Requirements
 
-CrewAI supports multiple providers. You can use Anthropic Claude, Google Gemini, or others:
+Generated articles will:
+- Include primary keyword in title
+- Be 1000+ words (configurable)
+- Use active voice
+- Keep sentences under 13-14 words
+- Be written for US audiences
+- Embed your backlink naturally
+- Mention "Labellerr AI" 4-5 times
 
-```python
-# Anthropic Claude
-self.llm = LLM(
-    model="anthropic/claude-3-opus-20240229",
-    temperature=0.7
-)
+## Tips
 
-# Google Gemini
-self.llm = LLM(
-    model="gemini/gemini-pro",
-    temperature=0.7
-)
+✅ **DO:**
+- Use complete competitor articles (500+ words)
+- Choose highly relevant competitors
+- Review generated content before publishing
 
-# Ollama (local)
-self.llm = LLM(
-    model="ollama/llama2",
-    temperature=0.7
-)
-```
+❌ **DON'T:**
+- Use very short content (<300 words)
+- Mix unrelated topics
+- Publish without fact-checking
 
-## 📝 Workflow Process
+## Troubleshooting
 
-1. **Article Generation**: Creates base article with embedded backlinks
-2. **Keyword Optimization**: Adjusts primary keyword density to target range
-3. **LSI Integration**: Adds semantic keywords throughout the content
-4. **Readability Enhancement**: Shortens sentences and improves clarity
+**"API key not found"** → Enter API key in UI
 
-All steps are performed sequentially by specialized AI agents.
+**"At least one competitor required"** → Add content to competitor sections
 
-## 🎯 Best Practices
+**Generation too slow** → Use Gemini 2.0 Flash (fastest model)
 
-- **Reference Content**: Provide high-quality reference content for best results
-- **Keyword Selection**: Choose relevant, specific keywords
-- **LSI Keywords**: Use semantically related terms, not just synonyms
-- **Link Relevance**: Ensure backlinks are contextually relevant
-- **Review Output**: Always review and edit the generated content before publishing
+## License
 
-## 🐛 Troubleshooting
-
-### API Key Errors
-- Ensure your `.env` file contains a valid `OPENAI_API_KEY`
-- Check that the key has sufficient credits
-
-### Generation Errors
-- Verify all required fields are filled
-- Check your internet connection
-- Ensure the API service is available
-
-### Performance Issues
-- Longer articles take more time to generate
-- Complex optimizations may require multiple iterations
-- Consider using faster models like GPT-3.5-turbo for testing
-
-## 📄 License
-
-This project is open-source and available for personal and commercial use.
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome!
-
-## 💡 Tips
-
-- Start with shorter articles (500-1000 words) for faster results
-- Use the analysis tab to understand keyword distribution
-- Adjust density ranges based on your SEO strategy
-- Test generated content with actual Hemingway Editor for validation
-
-## 📞 Support
-
-For issues or questions, please check the troubleshooting section or review the code comments for detailed implementation notes.
+Open-source and available for personal and commercial use.
 
 ---
 
-**Happy Content Creating! 🚀**
-
-# Blog-gen
+**Ready to generate better content with natural backlinks!** 🚀

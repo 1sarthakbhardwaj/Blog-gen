@@ -18,25 +18,42 @@ def create_env_file():
             return False
     
     # Get API key from user
-    print("\n🔑 OpenAI API Key Setup")
+    print("\n🔑 API Key Setup")
     print("=" * 50)
-    print("You need an OpenAI API key to use this application.")
-    print("Get your API key from: https://platform.openai.com/api-keys")
+    print("This application supports multiple AI providers:")
+    print("1. Google Gemini (Recommended) - https://aistudio.google.com/app/apikey")
+    print("2. OpenAI - https://platform.openai.com/api-keys")
+    print("3. Groq - https://console.groq.com/keys")
     print()
     
-    api_key = input("Enter your OpenAI API key (or press Enter to set it later): ").strip()
+    provider = input("Choose provider (1=Gemini, 2=OpenAI, 3=Groq) [1]: ").strip() or "1"
+    
+    if provider == "1":
+        api_key = input("Enter your Google API key (or press Enter to set it later): ").strip()
+        key_name = "GOOGLE_API_KEY"
+        key_value = api_key if api_key else "your_google_api_key_here"
+    elif provider == "2":
+        api_key = input("Enter your OpenAI API key (or press Enter to set it later): ").strip()
+        key_name = "OPENAI_API_KEY"
+        key_value = api_key if api_key else "your_openai_api_key_here"
+    else:
+        api_key = input("Enter your Groq API key (or press Enter to set it later): ").strip()
+        key_name = "GROQ_API_KEY"
+        key_value = api_key if api_key else "your_groq_api_key_here"
     
     if not api_key:
-        api_key = "your_openai_api_key_here"
         print("\n⚠️  You can add your API key later by editing the .env file")
     
     # Create .env file
-    env_content = f"""# OpenAI API Key (required for CrewAI agents)
-OPENAI_API_KEY={api_key}
+    env_content = f"""# API Keys for Backlink Article Generator
+# Google Gemini (Recommended for this workflow)
+GOOGLE_API_KEY={key_value if key_name == "GOOGLE_API_KEY" else "your_google_api_key_here"}
 
-# Optional: Other LLM providers
-# ANTHROPIC_API_KEY=your_anthropic_key
-# GOOGLE_API_KEY=your_google_key
+# OpenAI (Alternative)
+OPENAI_API_KEY={key_value if key_name == "OPENAI_API_KEY" else "your_openai_api_key_here"}
+
+# Groq (Alternative)
+GROQ_API_KEY={key_value if key_name == "GROQ_API_KEY" else "your_groq_api_key_here"}
 """
     
     try:
@@ -81,7 +98,7 @@ def verify_dependencies():
 
 def main():
     print("=" * 50)
-    print("AI Article Backlinking Generator - Setup")
+    print("Backlink Article Generator - Setup")
     print("=" * 50)
     print()
     

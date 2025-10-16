@@ -6,225 +6,175 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from agents import ArticleWorkflow
+from agents import BacklinkArticleWorkflow
+from scraper import scrape_article
 
 # Page configuration
 st.set_page_config(
-    page_title="AI Article Backlinking Generator",
-    page_icon="📝",
+    page_title="Backlink Article Generator",
+    page_icon="🔗",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Dark/Light Mode CSS with theme detection
+# Modern CSS Styling
 st.markdown("""
     <style>
     /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
-    /* Main container - adapts to theme */
+    /* Main container */
     .main {
-        padding: 2rem;
+        padding: 1.5rem;
         font-family: 'Inter', sans-serif;
     }
     
     /* Header */
     .main-header {
         text-align: center;
-        padding: 2rem 1rem;
-        margin-bottom: 2rem;
+        padding: 1.5rem 1rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        color: white;
     }
     
     .main-header h1 {
-        font-size: 2.5rem;
-        font-weight: 600;
+        font-size: 2.2rem;
+        font-weight: 700;
         margin: 0;
+        color: white;
     }
     
     .main-header p {
         font-size: 1rem;
         margin-top: 0.5rem;
-        opacity: 0.8;
+        opacity: 0.9;
+        color: white;
     }
     
     /* Section headers */
     .section-header {
-        font-size: 1.2rem;
-        font-weight: 500;
-        padding: 0.75rem 0;
-        margin: 1.5rem 0 1rem 0;
-        border-bottom: 2px solid var(--primary-color);
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 0.6rem 0;
+        margin: 1rem 0 0.8rem 0;
+        border-bottom: 2px solid #667eea;
+        color: #2d3748;
     }
     
-    /* Radio button styling */
-    .stRadio>div>label>div[data-testid="stMarkdownContainer"] {
-        font-weight: 500;
+    /* Competitor section */
+    .competitor-section {
+        background: #f7fafc;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+        border-left: 4px solid #667eea;
     }
     
-    /* Selectbox styling */
-    .stSelectbox>div>div>div {
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* Button */
+    /* Button styling */
     .stButton>button {
         width: 100%;
-        background: var(--primary-color);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 0.75rem 2rem;
         font-size: 16px;
-        font-weight: 500;
+        font-weight: 600;
         border-radius: 8px;
         border: none;
-        transition: all 0.2s ease;
+        transition: all 0.3s ease;
+        margin-top: 1rem;
     }
     
     .stButton>button:hover {
-        background: var(--primary-color);
-        opacity: 0.9;
-        transform: translateY(-1px);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
     }
     
-    /* Input styling - adapts to theme */
-    .stTextInput>div>div>input,
-    .stTextArea>div>div>textarea,
-    .stNumberInput>div>div>input {
-        border-radius: 6px;
-        border: 1px solid var(--border-color);
-        padding: 0.5rem;
-        font-family: 'Inter', sans-serif;
-        background-color: var(--background-color);
-        color: var(--text-color);
-    }
-    
-    .stTextInput>div>div>input:focus,
-    .stTextArea>div>div>textarea:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 1px var(--primary-color);
-    }
-    
-    /* Processing box - adapts to theme */
-    .processing-box {
-        background: var(--secondary-background-color);
-        border: 2px solid var(--primary-color);
-        border-radius: 8px;
-        padding: 2rem;
-        text-align: center;
-        margin: 2rem 0;
-    }
-    
-    .processing-box h3 {
-        margin: 0 0 1rem 0;
-    }
-    
-    .processing-box p {
-        margin: 0;
-        opacity: 0.8;
-    }
-    
-    /* Success box */
-    .success-box {
-        background: #2ecc71;
-        color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-    
-    /* Warning box */
-    .warning-box {
-        background: #e74c3c;
-        color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-    
-    /* Info box */
+    /* Info boxes */
     .info-box {
-        background: var(--primary-color);
-        color: white;
+        background: #e6fffa;
+        border-left: 4px solid #38b2ac;
         padding: 1rem;
-        border-radius: 8px;
+        border-radius: 6px;
         margin: 1rem 0;
     }
     
-    /* Metric cards - adapts to theme */
+    .warning-box {
+        background: #fff5f5;
+        border-left: 4px solid #f56565;
+        padding: 1rem;
+        border-radius: 6px;
+        margin: 1rem 0;
+    }
+    
+    .success-box {
+        background: #f0fff4;
+        border-left: 4px solid #48bb78;
+        padding: 1rem;
+        border-radius: 6px;
+        margin: 1rem 0;
+    }
+    
+    /* Metric cards */
     .metric-card {
-        background: var(--secondary-background-color);
+        background: white;
         padding: 1.5rem;
-        border-radius: 8px;
+        border-radius: 10px;
         text-align: center;
-        border: 1px solid var(--border-color);
-        margin: 0.5rem;
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     
     .metric-value {
-        font-size: 2rem;
-        font-weight: 600;
-        color: var(--primary-color);
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #667eea;
+        margin-bottom: 0.5rem;
     }
     
     .metric-label {
         font-size: 0.875rem;
-        opacity: 0.8;
-        margin-top: 0.5rem;
+        color: #718096;
+        font-weight: 500;
     }
     
-    /* Hide Streamlit elements */
+    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
     /* Progress bar */
     .stProgress>div>div>div>div {
-        background: var(--primary-color);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     
-    /* Dark mode specific adjustments */
-    @media (prefers-color-scheme: dark) {
-        .main-header h1 {
-            color: #ffffff;
-        }
-        
-        .main-header p {
-            color: #b0b0b0;
-        }
-        
-        .section-header {
-            color: #ffffff;
-        }
-        
-        .processing-box h3 {
-            color: #ffffff;
-        }
-        
-        .processing-box p {
-            color: #b0b0b0;
-        }
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
     }
     
-    /* Light mode specific adjustments */
-    @media (prefers-color-scheme: light) {
-        .main-header h1 {
-            color: #2c3e50;
-        }
-        
-        .main-header p {
-            color: #7f8c8d;
-        }
-        
-        .section-header {
-            color: #2c3e50;
-        }
-        
-        .processing-box h3 {
-            color: #2c3e50;
-        }
-        
-        .processing-box p {
-            color: #7f8c8d;
-        }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 6px 6px 0 0;
+        padding: 10px 20px;
+    }
+    
+    /* Text areas */
+    .stTextArea textarea {
+        border-radius: 6px;
+        border: 2px solid #e2e8f0;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .stTextArea textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 1px #667eea;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -232,86 +182,10 @@ st.markdown("""
 # Header
 st.markdown("""
     <div class="main-header">
-        <h1>AI Article Backlinking Generator</h1>
-        <p>Automate content creation with AI-powered SEO optimization</p>
+        <h1>🔗 Backlink Article Generator</h1>
+        <p>Generate SEO-optimized articles from your content + competitor analysis</p>
     </div>
 """, unsafe_allow_html=True)
-
-# API Key and Model Selection
-st.markdown('<div class="section-header">🔑 API Configuration</div>', unsafe_allow_html=True)
-
-# Provider selection
-provider = st.radio(
-    "Choose AI Provider:",
-    ["OpenAI (Recommended)", "Groq"],
-    horizontal=True,
-    help="Select your preferred AI provider"
-)
-
-# API Key input based on provider
-if provider == "OpenAI (Recommended)":
-    api_key = st.text_input(
-        "OpenAI API Key",
-        type="password",
-        placeholder="sk-proj-xxxxxxxxxxxxxxxxxxxxx",
-        help="Get your API key from https://platform.openai.com/api-keys"
-    )
-    
-    # Model selection for OpenAI
-    openai_model = st.selectbox(
-        "OpenAI Model",
-        [
-            "openai/gpt-4o-mini (Recommended - Fast & Cost-effective)",
-            "openai/gpt-4o",
-            "openai/gpt-4-turbo",
-            "openai/gpt-3.5-turbo"
-        ],
-        help="GPT-4o-mini is recommended for best performance and cost"
-    )
-    
-    # Extract model name
-    selected_model = openai_model.split(" (")[0]
-    
-else:  # Groq
-    api_key = st.text_input(
-        "Groq API Key",
-        type="password",
-        placeholder="gsk_xxxxxxxxxxxxxxxxxxxxx",
-        help="Get your API key from https://console.groq.com/keys"
-    )
-    
-    # Model selection for Groq
-    groq_model = st.selectbox(
-        "Groq Model",
-        [
-            "groq/llama-3.3-70b-versatile (Recommended - Latest & Most Capable)",
-            "groq/llama-3.1-8b-instant (Fast & Efficient)",
-            "groq/mixtral-8x7b-32768 (High Context)",
-            "groq/gemma-7b-it (Google's Model)",
-            "groq/llama-3.1-405b-versatile (Most Powerful - Slower)"
-        ],
-        help="Llama 3.3 70B is the latest and most capable model with enhanced reasoning"
-    )
-    
-    # Extract model name
-    selected_model = groq_model.split(" (")[0]
-
-# Check if API key is provided
-if not api_key:
-    st.markdown("""
-        <div class="warning-box">
-            <h3>⚠️ API Key Required</h3>
-            <p>Please enter your API key to use the AI Article Generator.</p>
-        </div>
-    """, unsafe_allow_html=True)
-    st.stop()
-
-# Store in session state for use in agents
-st.session_state.api_key = api_key
-st.session_state.selected_model = selected_model
-st.session_state.provider = provider
-
-st.markdown("---")
 
 # Initialize session state
 if 'generated_article' not in st.session_state:
@@ -319,129 +193,267 @@ if 'generated_article' not in st.session_state:
 if 'processing' not in st.session_state:
     st.session_state.processing = False
 
-# Create two columns for layout
-col1, col2 = st.columns([1, 1])
+# API Configuration Section
+st.markdown('<div class="section-header">🔑 API Configuration</div>', unsafe_allow_html=True)
+
+col_api1, col_api2 = st.columns([1, 2])
+
+with col_api1:
+    provider = st.radio(
+        "Choose AI Provider:",
+        ["Google Gemini (Recommended)", "OpenAI", "Groq"],
+        horizontal=False,
+        help="Gemini 2.0 Flash is optimized for this workflow"
+    )
+
+with col_api2:
+    # API Key input based on provider
+    if provider == "Google Gemini (Recommended)":
+        api_key = st.text_input(
+            "Google API Key",
+            type="password",
+            placeholder="AIza...",
+            help="Get your API key from https://aistudio.google.com/app/apikey"
+        )
+        
+        # Model selection for Gemini
+        gemini_model = st.selectbox(
+            "Gemini Model",
+            [
+                "gemini/gemini-2.0-flash-exp (Recommended - Latest & Fastest)",
+                "gemini/gemini-1.5-pro (Most Capable)",
+                "gemini/gemini-1.5-flash (Fast & Efficient)"
+            ],
+            help="Gemini 2.0 Flash Experimental is recommended for best results"
+        )
+        selected_model = gemini_model.split(" (")[0]
+        
+    elif provider == "OpenAI":
+        api_key = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            placeholder="sk-proj-...",
+            help="Get your API key from https://platform.openai.com/api-keys"
+        )
+        
+        openai_model = st.selectbox(
+            "OpenAI Model",
+            [
+                "openai/gpt-4o",
+                "openai/gpt-4o-mini",
+                "openai/gpt-4-turbo"
+            ]
+        )
+        selected_model = openai_model
+        
+    else:  # Groq
+        api_key = st.text_input(
+            "Groq API Key",
+            type="password",
+            placeholder="gsk_...",
+            help="Get your API key from https://console.groq.com/keys"
+        )
+        
+        groq_model = st.selectbox(
+            "Groq Model",
+            [
+                "groq/llama-3.3-70b-versatile",
+                "groq/llama-3.1-8b-instant",
+                "groq/mixtral-8x7b-32768"
+            ]
+        )
+        selected_model = groq_model
+
+# Check if API key is provided
+if not api_key:
+    st.markdown("""
+        <div class="warning-box">
+            <h3>⚠️ API Key Required</h3>
+            <p>Please enter your API key to use the Backlink Article Generator.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
+# Store in session state
+st.session_state.api_key = api_key
+st.session_state.selected_model = selected_model
+st.session_state.provider = provider
+
+st.markdown("---")
+
+# Main Input Section
+col1, col2 = st.columns([1.2, 1])
 
 with col1:
-    st.markdown('<div class="section-header">📝 Content Input</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📝 Content Inputs</div>', unsafe_allow_html=True)
     
-    # Keyword Input
-    st.markdown("**Primary Keyword**")
+    # Keywords
+    st.markdown("**Primary Keyword** *")
     primary_keyword = st.text_input(
         "",
-        placeholder="e.g., digital marketing strategies",
-        key="primary_kw"
+        placeholder="e.g., human pose estimation",
+        key="primary_kw",
+        help="This keyword will be used in the title and as backlink anchor text"
     )
     
-    # LSI Keywords
-    st.markdown("**LSI Keywords**")
-    num_lsi = st.number_input("Number of LSI keywords", min_value=1, max_value=10, value=3)
-    lsi_keywords = []
-    for i in range(num_lsi):
-        lsi = st.text_input(f"LSI Keyword {i+1}", key=f"lsi_{i}", placeholder=f"e.g., SEO optimization")
-        if lsi:
-            lsi_keywords.append(lsi)
-    
-    # Main Article Content
-    st.markdown("**Main Article Content**")
-    main_article_content = st.text_area(
+    st.markdown("**Secondary Keywords** (comma-separated)")
+    secondary_keywords_input = st.text_area(
         "",
-        height=200,
-        placeholder="Paste your article content here...",
-        key="main_content"
+        placeholder="e.g., pose detection, body keypoints, OpenPose alternatives",
+        height=80,
+        key="secondary_kw",
+        help="Related keywords to naturally include in the article"
+    )
+    secondary_keywords = [kw.strip() for kw in secondary_keywords_input.split(',') if kw.strip()]
+    
+    st.markdown("---")
+    
+    # Original Article
+    st.markdown("**Original Article (Your Content)** *")
+    original_article_url = st.text_input(
+        "Article URL",
+        placeholder="https://www.labellerr.com/blog/your-article",
+        key="original_url",
+        help="This link will be embedded in the new article"
     )
     
-    # Main Article Link
-    st.markdown("**Main Article Link**")
-    main_article_link = st.text_input(
-        "",
-        placeholder="https://example.com/main-article",
-        key="main_link"
+    original_article_content = st.text_area(
+        "Article Content",
+        placeholder="Paste your original article content here...",
+        height=250,
+        key="original_content",
+        help="Your article that will be used as the primary source (60-70% weight)"
     )
     
-    # Related Links
-    st.markdown("**Related Links**")
-    num_links = st.number_input("Number of related links", min_value=0, max_value=10, value=2)
-    related_links = []
-    for i in range(num_links):
-        link = st.text_input(f"Link {i+1}", key=f"link_{i}", placeholder="https://example.com/related")
-        if link:
-            related_links.append(link)
+    st.markdown("---")
+    
+    # Competitor Articles
+    st.markdown('<div class="section-header">🎯 Competitor Articles</div>', unsafe_allow_html=True)
+    
+    # Optional: Auto-scrape toggle (disabled for now)
+    enable_scraping = st.checkbox(
+        "🔬 Enable automatic content scraping (Experimental)",
+        value=False,
+        help="Automatically extract content from competitor URLs"
+    )
+    
+    competitor_articles = []
+    
+    for i in range(1, 4):
+        st.markdown(f'<div class="competitor-section"><strong>Competitor {i}</strong></div>', unsafe_allow_html=True)
+        
+        comp_url = st.text_input(
+            f"URL {i}",
+            placeholder=f"https://competitor{i}.com/article",
+            key=f"comp_url_{i}"
+        )
+        
+        if enable_scraping and comp_url:
+            if st.button(f"📥 Scrape Content {i}", key=f"scrape_btn_{i}"):
+                with st.spinner(f"Scraping competitor {i}..."):
+                    result = scrape_article(comp_url)
+                    if result['error']:
+                        st.error(f"Error: {result['error']}")
+                        st.session_state[f'comp_content_{i}'] = ""
+                    else:
+                        st.session_state[f'comp_content_{i}'] = result['content']
+                        st.success(f"✅ Scraped {len(result['content'])} characters")
+        
+        comp_content = st.text_area(
+            f"Content {i}",
+            placeholder=f"Paste competitor {i} article content...",
+            height=150,
+            key=f"comp_content_{i}",
+            value=st.session_state.get(f'comp_content_{i}', '')
+        )
+        
+        competitor_articles.append({'url': comp_url, 'content': comp_content})
 
 with col2:
     st.markdown('<div class="section-header">⚙️ Generation Settings</div>', unsafe_allow_html=True)
     
-    # Target metrics
-    st.markdown("**Keyword Density Range (%)**")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        keyword_density_min = st.number_input("Min", 0.0, 5.0, 1.5, 0.1, key="kw_min")
-    with col_b:
-        keyword_density_max = st.number_input("Max", 0.0, 5.0, 3.0, 0.1, key="kw_max")
+    target_word_count = st.number_input(
+        "Target Word Count",
+        min_value=800,
+        max_value=5000,
+        value=1200,
+        step=100,
+        help="Minimum word count for the generated article"
+    )
     
-    st.markdown("**LSI Density Range (%)**")
-    col_c, col_d = st.columns(2)
-    with col_c:
-        lsi_density_min = st.number_input("Min", 0.0, 10.0, 4.0, 0.5, key="lsi_min")
-    with col_d:
-        lsi_density_max = st.number_input("Max", 0.0, 10.0, 6.0, 0.5, key="lsi_max")
+    labellerr_link = st.text_input(
+        "Labellerr AI Link",
+        value="https://labellerr.com",
+        help="Link to use for Labellerr AI mentions"
+    )
     
-    st.markdown("**Readability**")
-    max_words_per_line = st.slider("Max words per sentence", 5, 20, 13, 1)
-    
-    st.markdown("**Article Length**")
-    target_word_count = st.number_input("Target word count", min_value=300, max_value=5000, value=1000, step=100)
-    
-    st.markdown("**Debug**")
-    debug_mode = st.checkbox("Enable debug mode", value=False)
+    labellerr_mention_count = st.slider(
+        "Labellerr AI Mentions",
+        min_value=3,
+        max_value=6,
+        value=4,
+        help="How many times to naturally mention Labellerr AI"
+    )
     
     st.markdown("---")
     
-    # Show selected configuration
-    if 'selected_model' in st.session_state:
-        st.markdown(f"""
-            <div class="info-box">
-                <strong>🤖 Selected Model:</strong> {st.session_state.selected_model}
-            </div>
-        """, unsafe_allow_html=True)
+    st.markdown('<div class="info-box">', unsafe_allow_html=True)
+    st.markdown(f"""
+    **Selected Configuration:**
+    - **Model**: {selected_model}
+    - **Provider**: {provider}
+    - **Target Length**: {target_word_count} words
+    - **Brand Mentions**: {labellerr_mention_count}x
+    """)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("---")
     
     # Generate button
-    generate_button = st.button("🚀 Generate Article", disabled=st.session_state.processing)
+    generate_button = st.button(
+        "🚀 Generate Backlinked Article",
+        disabled=st.session_state.processing,
+        type="primary"
+    )
 
-# Processing and Results
+# Processing Logic
 if generate_button:
     # Validation
     errors = []
     if not primary_keyword:
         errors.append("Primary keyword is required")
-    if not lsi_keywords:
-        errors.append("At least one LSI keyword is required")
-    if not main_article_content:
-        errors.append("Main article content is required")
-    if not main_article_link:
-        errors.append("Main article link is required")
+    if not original_article_url:
+        errors.append("Original article URL is required")
+    if not original_article_content:
+        errors.append("Original article content is required")
+    if not any(comp['content'] for comp in competitor_articles):
+        errors.append("At least one competitor article content is required")
     
     if errors:
-        st.error("Please fix the following errors:")
+        st.error("**Please fix the following errors:**")
         for error in errors:
-            st.write(f"- {error}")
+            st.write(f"❌ {error}")
     else:
         st.session_state.processing = True
         
-        # Simple processing message
+        # Processing UI
         st.markdown("""
-            <div class="processing-box">
-                <h3>🤖 AI Crew is Working...</h3>
-                <p>Please wait approximately 3-5 minutes while our AI agents optimize your article.</p>
-                <p style="margin-top: 1rem; font-size: 0.875rem;">The agents are paraphrasing, adding keywords, and optimizing readability.</p>
+            <div class="info-box">
+                <h3>🤖 AI Agents Working...</h3>
+                <p>The multi-agent workflow is analyzing content and generating your article.</p>
+                <p style="margin-top: 0.5rem; font-size: 0.875rem;">
+                    <strong>Process:</strong> Content Synthesis → Title Validation → Backlink Validation → 
+                    Word Count Check → Readability Optimization → Brand Integration
+                </p>
             </div>
         """, unsafe_allow_html=True)
         
         progress_bar = st.progress(0)
+        status_text = st.empty()
         
         try:
-            # Initialize workflow with API configuration
-            workflow = ArticleWorkflow(
+            # Initialize workflow
+            workflow = BacklinkArticleWorkflow(
                 api_key=st.session_state.api_key,
                 model=st.session_state.selected_model,
                 provider=st.session_state.provider
@@ -450,20 +462,19 @@ if generate_button:
             # Prepare input data
             input_data = {
                 'primary_keyword': primary_keyword,
-                'lsi_keywords': lsi_keywords,
-                'main_article_content': main_article_content,
-                'main_article_link': main_article_link,
-                'related_links': related_links,
-                'keyword_density_range': (keyword_density_min, keyword_density_max),
-                'lsi_density_range': (lsi_density_min, lsi_density_max),
-                'max_words_per_line': max_words_per_line,
+                'secondary_keywords': secondary_keywords,
+                'original_article_url': original_article_url,
+                'original_article_content': original_article_content,
+                'competitor_articles': competitor_articles,
                 'target_word_count': target_word_count,
-                'debug_mode': debug_mode
+                'labellerr_link': labellerr_link,
+                'labellerr_mention_count': labellerr_mention_count
             }
             
-            # Simple progress callback
-            def update_progress(step, progress, agent_log):
-                progress_bar.progress(progress)
+            # Progress callback
+            def update_progress(step, progress, log):
+                progress_bar.progress(progress / 100)
+                status_text.markdown(f"**{step}**\n\n{log}")
             
             # Run the workflow
             result = workflow.run(input_data, progress_callback=update_progress)
@@ -473,49 +484,51 @@ if generate_button:
             
             # Clear progress
             progress_bar.empty()
+            status_text.empty()
             
             st.markdown("""
                 <div class="success-box">
                     <strong>✅ Article Generated Successfully!</strong>
+                    <p>Your SEO-optimized article with backlinks is ready.</p>
                 </div>
             """, unsafe_allow_html=True)
+            
+            # Auto-scroll to results
+            st.rerun()
             
         except Exception as e:
             st.session_state.processing = False
             st.error(f"❌ An error occurred: {str(e)}")
-            st.exception(e)
+            if "api" in str(e).lower() or "key" in str(e).lower():
+                st.info("💡 Tip: Check your API key and ensure you have sufficient credits")
 
-# Display results
+# Display Results
 if st.session_state.generated_article:
     st.markdown("---")
-    st.markdown('<div class="section-header">Generated Article</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📊 Results</div>', unsafe_allow_html=True)
     
     result = st.session_state.generated_article
     
-    # Beautiful metrics cards
+    # Metrics Cards
     col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-value">{result.get('word_count', 'N/A')}</div>
-                <div class="metric-label">Word Count</div>
+                <div class="metric-value">{result.get('word_count', 0)}</div>
+                <div class="metric-label">Words</div>
             </div>
         """, unsafe_allow_html=True)
+    
     with col2:
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-value">{result.get('keyword_density', 0):.2f}%</div>
-                <div class="metric-label">Keyword Density</div>
+                <div class="metric-value">{result.get('sentence_count', 0)}</div>
+                <div class="metric-label">Sentences</div>
             </div>
         """, unsafe_allow_html=True)
+    
     with col3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{result.get('lsi_density', 0):.2f}%</div>
-                <div class="metric-label">LSI Density</div>
-            </div>
-        """, unsafe_allow_html=True)
-    with col4:
         st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-value">{result.get('avg_words_per_sentence', 0):.1f}</div>
@@ -523,51 +536,68 @@ if st.session_state.generated_article:
             </div>
         """, unsafe_allow_html=True)
     
-    # Tabs for different views
-    tab1, tab2, tab3 = st.tabs(["📝 Final Article", "📊 Analysis", "🔍 Details"])
+    with col4:
+        backlink_color = "#48bb78" if result.get('backlink_status') == "Present" else "#f56565"
+        st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value" style="color: {backlink_color};">
+                    {"✓" if result.get('backlink_status') == "Present" else "✗"}
+                </div>
+                <div class="metric-label">Backlink</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Tabs for Results
+    tab1, tab2 = st.tabs(["📝 Final Article", "📊 Validation Summary"])
     
     with tab1:
-        st.markdown("### Final Optimized Article")
-        st.text_area("", value=result.get('final_article', ''), height=500, key="final_output")
+        st.markdown("### Generated Article")
+        
+        # Display the article
+        article_display = st.text_area(
+            "",
+            value=result.get('final_article', ''),
+            height=600,
+            key="final_article_display"
+        )
         
         # Download button
-        st.download_button(
-            label="📥 Download Article",
-            data=result.get('final_article', ''),
-            file_name=f"article_{primary_keyword.replace(' ', '_')}.txt",
-            mime="text/plain"
-        )
+        col_dl1, col_dl2, col_dl3 = st.columns([1, 1, 2])
+        with col_dl1:
+            st.download_button(
+                label="📥 Download as TXT",
+                data=result.get('final_article', ''),
+                file_name=f"article_{primary_keyword.replace(' ', '_')}.txt",
+                mime="text/plain"
+            )
+        
+        with col_dl2:
+            # Copy to clipboard helper
+            st.markdown("""
+                <div style="padding: 0.5rem; background: #f7fafc; border-radius: 6px; text-align: center;">
+                    <small>Select all (Ctrl/Cmd+A) and copy (Ctrl/Cmd+C)</small>
+                </div>
+            """, unsafe_allow_html=True)
     
     with tab2:
-        st.markdown("### Keyword Analysis")
-        if 'keyword_analysis' in result:
-            st.json(result['keyword_analysis'])
+        st.markdown("### Validation Summary")
         
-        st.markdown("### LSI Analysis")
-        if 'lsi_analysis' in result:
-            st.json(result['lsi_analysis'])
-        
-        st.markdown("### Readability Metrics")
-        if 'readability_metrics' in result:
-            st.json(result['readability_metrics'])
-    
-    with tab3:
-        st.markdown("### Links Embedded")
-        st.write(f"- **Main Article Link**: {main_article_link}")
-        if related_links:
-            st.write("- **Related Links**:")
-            for link in related_links:
-                st.write(f"  - {link}")
-        
-        st.markdown("### Agent Activity Logs")
-        if 'agent_logs' in result:
-            st.text_area("Complete Agent Logs", value=result['agent_logs'], height=400)
+        # Display validation summary
+        if 'validation_summary' in result:
+            st.text_area(
+                "",
+                value=result['validation_summary'],
+                height=400,
+                key="validation_display"
+            )
 
 # Footer
 st.markdown("---")
 st.markdown("""
-    <div style="text-align: center; color: #7f8c8d; padding: 1rem;">
-        <p>Powered by CrewAI & Streamlit | v1.0</p>
+    <div style="text-align: center; color: #718096; padding: 1rem;">
+        <p><strong>Backlink Article Generator</strong> | Powered by CrewAI & Gemini 2.0 Flash | v2.0</p>
+        <p style="font-size: 0.875rem;">Generate SEO-optimized content with natural backlinks and competitor analysis</p>
     </div>
 """, unsafe_allow_html=True)
-
