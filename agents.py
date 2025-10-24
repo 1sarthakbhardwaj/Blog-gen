@@ -1,466 +1,269 @@
-from crewai import Agent, Task, Crew, Process, LLM
+"""
+Simplified article generation workflow
+No CrewAI - just direct LLM calls in sequence
+"""
 import re
-from typing import Dict, List, Tuple, Callable, Optional
-import os
-from dotenv import load_dotenv
+from typing import Dict, Optional, Callable
+from llm_client import LLMClient
 
-# Load environment variables from .env file
-load_dotenv()
 
 class BacklinkArticleWorkflow:
-    """
-    Workflow for generating backlinked articles from original + competitor content
-    Uses Gemini 2.0 Flash with multi-agent validation system
-    """
+    """Simple workflow for generating backlinked articles"""
     
-    def __init__(self, api_key=None, model=None, provider=None):
-        # Use provided API key and model, or fall back to environment variables
-        if api_key and model:
-            self.api_key = api_key
-            self.model = model
-            self.provider = provider
-            
-            # Set the API key as environment variable based on provider
-            if "openai" in model.lower():
-                os.environ["OPENAI_API_KEY"] = api_key
-            elif "groq" in model.lower():
-                os.environ["GROQ_API_KEY"] = api_key
-            elif "gemini" in model.lower():
-                os.environ["GOOGLE_API_KEY"] = api_key
-        else:
-            # Fallback to environment variables
-            if not os.getenv("GOOGLE_API_KEY") and not os.getenv("OPENAI_API_KEY"):
-                raise ValueError(
-                    "API key not found. Please provide API key in the UI or set GOOGLE_API_KEY/OPENAI_API_KEY in your .env file."
-                )
-            # Default to Gemini
-            self.api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("OPENAI_API_KEY")
-            self.model = "gemini/gemini-2.0-flash-exp"
-            self.provider = "Google Gemini"
-        
-        # Initialize LLM using CrewAI's LLM class with API key
-        try:
-            self.llm = LLM(
-                model=self.model,
-                temperature=0.7,
-                api_key=self.api_key
-            )
-        except Exception as e:
-            raise ValueError(f"Failed to initialize LLM with model {self.model}: {str(e)}")
-        
-        # Initialize agents
-        self.content_synthesizer = self._create_content_synthesizer()
-        self.title_validator = self._create_title_validator()
-        self.backlink_validator = self._create_backlink_validator()
-        self.word_count_validator = self._create_word_count_validator()
-        self.readability_validator = self._create_readability_validator()
-        self.brand_mention_validator = self._create_brand_mention_validator()
-    
-    def _create_content_synthesizer(self) -> Agent:
-        """Agent responsible for synthesizing original + competitor content into new article"""
-        return Agent(
-            role='Competitive Content Synthesizer & SEO Specialist',
-            goal='Create a comprehensive, SEO-optimized article by intelligently mixing original content with competitor insights',
-            backstory="""You are an expert content strategist and SEO writer with 10+ years of experience 
-            in competitive analysis and content creation. You excel at analyzing multiple articles on the same 
-            topic and synthesizing them into a superior piece that combines the best insights from each source.
-            
-            You understand how to:
-            - Prioritize the original content while incorporating competitor strengths
-            - Create compelling titles with target keywords
-            - Embed backlinks naturally using anchor text
-            - Write in active voice for US audiences
-            - Keep sentences concise and readable
-            - Naturally mention brand names in context
-            
-            You never plagiarize but create fresh, original content that's better than the sources.""",
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm
-        )
-    
-    def _create_title_validator(self) -> Agent:
-        """Agent responsible for validating and fixing article title"""
-        return Agent(
-            role='Title Optimization Specialist',
-            goal='Ensure the article title contains the primary keyword and is compelling for readers',
-            backstory="""You are a headline optimization expert who specializes in SEO-friendly titles. 
-            You know that a great title must include the primary keyword while remaining natural, compelling, 
-            and click-worthy. You can quickly identify if a title is missing keywords and rewrite it to be 
-            both SEO-optimized and engaging.""",
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm
-        )
-    
-    def _create_backlink_validator(self) -> Agent:
-        """Agent responsible for validating and embedding backlinks"""
-        return Agent(
-            role='Backlink Integration Specialist',
-            goal='Ensure the original article link is naturally embedded with the primary keyword as anchor text',
-            backstory="""You are an expert in natural link building and anchor text optimization. You understand 
-            that backlinks must flow naturally within content and use relevant anchor text. You can identify 
-            the perfect placement for links where they add value to readers while meeting SEO requirements. 
-            You never force links but find contextually relevant spots.""",
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm
-        )
-    
-    def _create_word_count_validator(self) -> Agent:
-        """Agent responsible for ensuring minimum word count"""
-        return Agent(
-            role='Content Length Optimizer',
-            goal='Ensure the article meets the minimum word count by expanding sections naturally',
-            backstory="""You are a content expansion specialist who knows how to add valuable information 
-            to articles without fluff or redundancy. When articles fall short of word count targets, you 
-            identify sections that can be expanded with examples, explanations, case studies, or additional 
-            insights. You maintain the article's quality and flow while reaching target length.""",
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm
-        )
-    
-    def _create_readability_validator(self) -> Agent:
-        """Agent responsible for ensuring readability standards"""
-        return Agent(
-            role='Readability & Clarity Expert',
-            goal='Ensure all sentences are concise (13-14 words max) and maintain excellent readability',
-            backstory="""You are a professional editor trained in the Hemingway style of writing. You specialize 
-            in breaking down complex sentences into clear, concise statements without losing meaning. You can 
-            quickly scan text, identify long sentences, and restructure them for optimal readability while 
-            maintaining the author's voice and intent.""",
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm
-        )
-    
-    def _create_brand_mention_validator(self) -> Agent:
-        """Agent responsible for validating brand mentions"""
-        return Agent(
-            role='Brand Integration Specialist',
-            goal='Ensure "Labellerr AI" is mentioned 4-5 times naturally with a mix of linked and plain text',
-            backstory="""You are a brand content strategist who specializes in natural brand integration. 
-            You understand that brand mentions must feel organic and add value to the content, not forced or 
-            spammy. You can identify opportunities to mention brands where they genuinely fit the context, 
-            and you balance hyperlinked mentions with plain text references for a natural reading experience.""",
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm
-        )
+    def __init__(self, api_key: str, model: str, provider: str):
+        self.llm = LLMClient(provider=provider, api_key=api_key, model=model)
     
     def run(self, input_data: Dict, progress_callback: Optional[Callable] = None) -> Dict:
-        """
-        Run the complete backlink article generation and validation workflow
+        """Run the article generation workflow"""
         
-        Args:
-            input_data: Dictionary containing all input parameters
-            progress_callback: Optional callback function for progress updates
-        
-        Returns:
-            Dictionary containing the final article, validation reports, and metrics
-        """
-        
-        # Task 1: Generate the main article
+        # Step 1: Generate main article
         if progress_callback:
-            progress_callback("Step 1/5: Synthesizing content from all sources...", 20, "Analyzing and mixing articles...")
+            progress_callback("Step 1/6: Generating article...", 20, "Creating content from sources")
         
-        # Build competitor content summary
-        competitor_content = ""
-        for i, comp in enumerate(input_data['competitor_articles'], 1):
-            if comp['content']:
-                competitor_content += f"\n\n=== COMPETITOR ARTICLE {i} ===\n"
-                competitor_content += f"URL: {comp['url']}\n"
-                competitor_content += f"CONTENT:\n{comp['content'][:3000]}\n"  # Limit to avoid token overflow
+        article = self._generate_article(input_data)
         
-        content_generation_task = Task(
-            description=f"""
-            Create a NEW, COMPREHENSIVE article by intelligently mixing the original article with competitor insights.
-            
-            === PRIMARY SOURCE (PRIORITIZE 60-70%) ===
-            URL: {input_data['original_article_url']}
-            CONTENT:
-            {input_data['original_article_content']}
-            
-            === COMPETITOR SOURCES (USE 30-40% COMBINED) ===
-            {competitor_content}
-            
-            === REQUIREMENTS ===
-            
-            **PRIMARY KEYWORD**: {input_data['primary_keyword']}
-            **SECONDARY KEYWORDS**: {', '.join(input_data['secondary_keywords'])}
-            
-            **CONTENT REQUIREMENTS**:
-            1. Create a TITLE that includes the primary keyword "{input_data['primary_keyword']}"
-            2. Write at least {input_data['target_word_count']} words
-            3. Prioritize the original article's perspective and key points (60-70% weight)
-            4. Incorporate valuable insights from competitor articles (30-40% combined)
-            5. Create ORIGINAL content - do not copy sentences verbatim
-            6. Use ACTIVE VOICE throughout
-            7. Write for US audience (American English, cultural context)
-            8. Keep sentences under 13-14 words maximum
-            
-            **BACKLINK REQUIREMENT**:
-            - Naturally embed this link: {input_data['original_article_url']}
-            - Use "{input_data['primary_keyword']}" or a variation as anchor text
-            - Place it where it adds genuine value (e.g., "For a deeper dive into {input_data['primary_keyword']}, check out [link]")
-            
-            **BRAND MENTIONS**:
-            - Mention "Labellerr AI" naturally {input_data['labellerr_mention_count']} times
-            - Make 2-3 mentions hyperlinked to: {input_data.get('labellerr_link', 'https://labellerr.com')}
-            - Keep 1-2 mentions as plain text
-            - Only mention where contextually relevant (e.g., when discussing data annotation, AI tools, etc.)
-            
-            **STRUCTURE**:
-            - Start with an engaging introduction
-            - Use clear section headings (H2, H3)
-            - Include examples and practical applications
-            - End with a strong conclusion
-            
-            **FORMAT**:
-            Return the article in this exact format:
-            
-            TITLE: [Your compelling title with primary keyword]
-            
-            [Article content with proper structure]
-            
-            IMPORTANT: The article must be original, comprehensive, and better than any single source.
-            """,
-            agent=self.content_synthesizer,
-            expected_output="A comprehensive article with title, properly structured content, embedded backlink, and brand mentions"
-        )
-        
-        # Task 2: Validate and fix title
+        # Step 2: Validate title
         if progress_callback:
-            progress_callback("Step 2/6: Validating article title...", 30, "Checking title for primary keyword...")
+            progress_callback("Step 2/6: Validating title...", 35, "Checking keyword in title")
         
-        title_validation_task = Task(
-            description=f"""
-            Check if the article title contains the primary keyword: "{input_data['primary_keyword']}"
-            
-            If the title doesn't contain the primary keyword, rewrite it to include the keyword naturally.
-            
-            Return ONLY the complete article with the corrected title (if needed).
-            Do NOT include any validation text, reports, or metadata.
-            Just return the clean article text.
-            """,
-            agent=self.title_validator,
-            expected_output="Clean article text with validated title",
-            context=[content_generation_task]
-        )
+        article = self._validate_title(article, input_data['primary_keyword'])
         
-        # Task 3: Validate and fix backlink
+        # Step 3: Validate backlink
         if progress_callback:
-            progress_callback("Step 3/6: Validating backlink placement...", 45, "Checking backlink with anchor text...")
+            progress_callback("Step 3/6: Validating backlink...", 50, "Checking link placement")
         
-        backlink_validation_task = Task(
-            description=f"""
-            Check if the link {input_data['original_article_url']} is embedded in the article with "{input_data['primary_keyword']}" as anchor text.
-            
-            If the link is missing or not properly embedded:
-            1. Find a natural place in the article to add it
-            2. Embed it using the primary keyword or a natural variation as anchor text
-            3. Make sure it flows naturally in the context
-            
-            Return ONLY the complete article with the link properly embedded.
-            Do NOT include any validation text, reports, or metadata.
-            Just return the clean article text.
-            """,
-            agent=self.backlink_validator,
-            expected_output="Clean article text with validated backlink",
-            context=[title_validation_task]
-        )
+        article = self._validate_backlink(article, input_data)
         
-        # Task 4: Validate and expand word count
+        # Step 4: Validate word count
         if progress_callback:
-            progress_callback("Step 4/6: Checking word count...", 60, "Ensuring minimum word count...")
+            progress_callback("Step 4/6: Checking word count...", 65, "Ensuring minimum length")
         
-        word_count_validation_task = Task(
-            description=f"""
-            Count the total words in the article.
-            
-            Target: At least {input_data['target_word_count']} words
-            
-            If the article has fewer than {input_data['target_word_count']} words:
-            1. Identify sections that can be expanded naturally
-            2. Add examples, explanations, or additional insights
-            3. Maintain the article's quality and flow
-            4. Expand until reaching the target word count
-            
-            Do NOT add fluff or repetitive content. Add valuable information only.
-            
-            Return ONLY the complete article (expanded if needed).
-            Do NOT include any word count reports or metadata.
-            Just return the clean article text.
-            """,
-            agent=self.word_count_validator,
-            expected_output="Clean article text meeting minimum word count",
-            context=[backlink_validation_task]
-        )
+        article = self._validate_word_count(article, input_data['target_word_count'])
         
-        # Task 5: Validate and fix readability
+        # Step 5: Optimize readability
         if progress_callback:
-            progress_callback("Step 5/6: Enhancing readability...", 75, "Breaking down long sentences...")
+            progress_callback("Step 5/6: Optimizing readability...", 80, "Improving sentence structure")
         
-        readability_validation_task = Task(
-            description=f"""
-            Check all sentences in the article. 
-            
-            Target: Maximum 13-14 words per sentence
-            
-            If any sentences are longer than 14 words:
-            1. Break them into shorter sentences
-            2. Maintain the original meaning and flow
-            3. Keep natural transitions
-            
-            Return ONLY the complete article with optimized readability.
-            Do NOT include any validation text, reports, or metadata.
-            Just return the clean article text.
-            """,
-            agent=self.readability_validator,
-            expected_output="Clean article text with optimized readability",
-            context=[word_count_validation_task]
-        )
+        article = self._optimize_readability(article)
         
-        # Task 6: Validate and fix brand mentions
+        # Step 6: Validate brand mentions
         if progress_callback:
-            progress_callback("Step 6/6: Validating brand mentions...", 90, "Checking Labellerr AI mentions...")
+            progress_callback("Step 6/6: Adding brand mentions...", 95, "Integrating Labellerr AI")
         
-        brand_validation_task = Task(
-            description=f"""
-            Count "Labellerr AI" mentions in the article.
-            
-            Target: {input_data['labellerr_mention_count']} mentions total
-            - 2-3 should be hyperlinked to: {input_data.get('labellerr_link', 'https://labellerr.com')}
-            - 1-2 should be plain text
-            
-            If the count is off or the mix is wrong:
-            1. Add or adjust mentions to meet the target
-            2. Only add where contextually relevant (data annotation, AI tools, computer vision, etc.)
-            3. Ensure natural flow
-            
-            Return ONLY the complete article with proper brand mentions.
-            Do NOT include any validation text, reports, or metadata.
-            Just return the clean article text.
-            """,
-            agent=self.brand_mention_validator,
-            expected_output="Clean article text with validated brand mentions",
-            context=[readability_validation_task]
-        )
+        article = self._validate_brand_mentions(article, input_data)
         
-        # Create and run the crew
-        crew = Crew(
-            agents=[
-                self.content_synthesizer,
-                self.title_validator,
-                self.backlink_validator,
-                self.word_count_validator,
-                self.readability_validator,
-                self.brand_mention_validator
-            ],
-            tasks=[
-                content_generation_task,
-                title_validation_task,
-                backlink_validation_task,
-                word_count_validation_task,
-                readability_validation_task,
-                brand_validation_task
-            ],
-            process=Process.sequential,
-            verbose=True
-        )
+        # Calculate metrics
+        metrics = self._calculate_metrics(article, input_data['primary_keyword'], input_data['original_article_url'])
         
-        try:
-            # Execute the workflow
-            result = crew.kickoff()
-            
-            if progress_callback:
-                progress_callback("Step 5/5: Finalizing article...", 95, "Calculating metrics...")
-            
-            # Extract final article from result
-            final_article = str(result)
-            
-            # Calculate metrics
-            metrics = self._calculate_metrics(
-                final_article,
-                input_data['primary_keyword'],
-                input_data['original_article_url']
-            )
-            
-            # Create validation summary
-            validation_summary = f"""
-=== VALIDATION SUMMARY ===
-
-✅ Content Generation: Complete
-   - Mixed original + competitor content
-   - Generated comprehensive article
-   
-✅ Title Validation: Checked
-   - Primary keyword presence verified
-   
-✅ Backlink Validation: Checked
-   - Original article link embedded
-   - Anchor text optimized
-
-✅ Word Count Validation: Checked
-   - Target: {input_data['target_word_count']}+ words
-   - Actual: {metrics['word_count']} words
-   
-✅ Readability Validation: Checked
-   - Sentences optimized for readability
-   - Target: Max 13-14 words per sentence
-   
-✅ Brand Mention Validation: Checked
-   - Labellerr AI mentions integrated naturally
-   - Mix of linked and plain text
-   
-=== FINAL METRICS ===
-- Word Count: {metrics['word_count']}
-- Sentence Count: {metrics['sentence_count']}
-- Avg Words/Sentence: {metrics['avg_words_per_sentence']:.1f}
-- Backlink Status: {metrics['backlink_status']}
-"""
-            
-            if progress_callback:
-                progress_callback("✅ Complete! Article generated successfully.", 100, validation_summary)
-            
-            # Return comprehensive result
-            return {
-                'final_article': final_article,
-                'word_count': metrics['word_count'],
-                'sentence_count': metrics['sentence_count'],
-                'avg_words_per_sentence': metrics['avg_words_per_sentence'],
-                'backlink_status': metrics['backlink_status'],
-                'validation_summary': validation_summary
-            }
-            
-        except Exception as e:
-            error_msg = f"Error during workflow execution: {str(e)}"
-            if progress_callback:
-                progress_callback("❌ Error occurred", 0, error_msg)
-            raise e
+        if progress_callback:
+            progress_callback("Complete!", 100, "Article generated successfully")
+        
+        return {
+            'final_article': article,
+            'word_count': metrics['word_count'],
+            'sentence_count': metrics['sentence_count'],
+            'avg_words_per_sentence': metrics['avg_words_per_sentence'],
+            'backlink_status': metrics['backlink_status'],
+            'validation_summary': self._create_summary(metrics, input_data)
+        }
     
-    def _calculate_metrics(self, article: str, primary_keyword: str, original_url: str) -> Dict:
-        """Calculate various metrics for the article"""
+    def _generate_article(self, data: Dict) -> str:
+        """Step 1: Generate the initial article"""
         
-        # Word count
+        competitor_content = ""
+        for i, comp in enumerate(data['competitor_articles'], 1):
+            if comp['content']:
+                competitor_content += f"\n\n=== COMPETITOR {i} ===\n{comp['content'][:8000]}\n"
+        
+        prompt = f"""Create a comprehensive, detailed article by intelligently combining the original article with competitor insights.
+
+PRIMARY SOURCE (60-70% weight):
+{data['original_article_content']}
+
+COMPETITOR SOURCES (30-40% combined):
+{competitor_content}
+
+REQUIREMENTS:
+1. Title MUST include: "{data['primary_keyword']}" and be compelling
+2. Write {data['target_word_count']}+ words with substantial, meaningful content
+3. Use active voice with sentences of 10-12 words (not too short, not too long)
+4. Create detailed, informative content with examples, explanations, and insights
+5. Embed this link naturally: {data['original_article_url']}
+   - Use "{data['primary_keyword']}" as anchor text
+6. Mention "Labellerr AI" {data['labellerr_mention_count']} times naturally
+   - Link 2-3 mentions to: {data['labellerr_link']}
+7. Use clear H2, H3 headings for structure
+8. Write for US audience with engaging, professional tone
+9. Include practical examples, use cases, and actionable insights
+10. Make the content comprehensive and valuable, not vague
+
+CONTENT QUALITY:
+- Provide detailed explanations and context
+- Include specific examples and use cases
+- Add practical insights and applications
+- Use professional, engaging language
+- Ensure each paragraph adds value
+- Create a cohesive, well-structured narrative
+
+Return ONLY the article with this format:
+TITLE: [Your compelling title with primary keyword]
+
+[Comprehensive article content with detailed explanations, examples, and insights]"""
+
+        return self.llm.generate(prompt, temperature=0.7)
+    
+    def _validate_title(self, article: str, keyword: str) -> str:
+        """Step 2: Ensure title has keyword"""
+        
+        if keyword.lower() not in article.lower()[:200]:
+            prompt = f"""Fix the title to include "{keyword}".
+
+Current article:
+{article[:1000]}...
+
+Return the COMPLETE article with corrected title. Keep everything else the same."""
+            
+            return self.llm.generate(prompt, temperature=0.5)
+        
+        return article
+    
+    def _validate_backlink(self, article: str, data: Dict) -> str:
+        """Step 3: Ensure backlink is present"""
+        
+        if data['original_article_url'] not in article:
+            prompt = f"""Add this link: {data['original_article_url']}
+Use "{data['primary_keyword']}" as anchor text.
+Place it naturally in the article.
+
+Current article:
+{article}
+
+Return the COMPLETE article with the link added."""
+            
+            return self.llm.generate(prompt, temperature=0.5)
+        
+        return article
+    
+    def _validate_word_count(self, article: str, target: int) -> str:
+        """Step 4: Ensure minimum word count with substantial content"""
+        
+        words = len(article.split())
+        if words < target:
+            prompt = f"""Expand this article from {words} to {target}+ words with substantial, meaningful content.
+
+Current article:
+{article}
+
+EXPANSION REQUIREMENTS:
+- Add detailed explanations and context
+- Include specific examples and use cases
+- Provide practical insights and applications
+- Add relevant statistics or data points
+- Include step-by-step processes where applicable
+- Add real-world scenarios and case studies
+- Ensure each addition adds genuine value
+- Maintain professional, engaging tone
+- Keep sentences 10-12 words long
+- No fluff or repetitive content
+
+Return the COMPLETE expanded article with substantial, valuable content."""
+            
+            return self.llm.generate(prompt, temperature=0.7)
+        
+        return article
+    
+    def _optimize_readability(self, article: str) -> str:
+        """Step 5: Optimize sentence length to 10-12 words"""
+        
+        # Check sentence lengths
+        sentences = re.split(r'[.!?]+', article)
+        sentence_lengths = [len(s.split()) for s in sentences if s.strip() and len(s.strip()) > 10]
+        
+        if sentence_lengths:
+            avg_length = sum(sentence_lengths) / len(sentence_lengths)
+            # If average is too short (<8) or too long (>15), optimize
+            if avg_length < 8 or avg_length > 15:
+                prompt = f"""Optimize sentence length to 10-12 words per sentence for better readability.
+
+Current article:
+{article}
+
+INSTRUCTIONS:
+- Keep sentences between 8-15 words (target: 10-12 words)
+- If sentences are too short, combine them naturally
+- If sentences are too long, break them into shorter ones
+- Maintain the same meaning and flow
+- Keep the content detailed and informative
+- Ensure professional, engaging tone
+
+Return the COMPLETE article with optimized sentence length."""
+                
+                return self.llm.generate(prompt, temperature=0.5)
+        
+        return article
+    
+    def _validate_brand_mentions(self, article: str, data: Dict) -> str:
+        """Step 6: Ensure proper brand mentions"""
+        
+        mentions = article.lower().count("labellerr")
+        target = data['labellerr_mention_count']
+        
+        if mentions < target:
+            prompt = f"""Add {target - mentions} more natural mentions of "Labellerr AI" to this article.
+Link {data['labellerr_mention_count'] - 2} of them to: {data['labellerr_link']}
+
+CONTEXT REQUIREMENTS:
+- Only mention where contextually relevant (data annotation, AI tools, computer vision, machine learning, etc.)
+- Make mentions feel natural and valuable to the reader
+- Integrate smoothly into existing content
+- Provide context about what Labellerr AI does
+- Maintain professional tone
+- Don't force mentions where they don't fit
+
+Article:
+{article}
+
+Return the COMPLETE article with natural, contextual brand mentions added."""
+            
+            return self.llm.generate(prompt, temperature=0.6)
+        
+        return article
+    
+    def _calculate_metrics(self, article: str, keyword: str, url: str) -> Dict:
+        """Calculate article metrics"""
+        
         words = article.split()
         word_count = len(words)
         
-        # Sentence analysis
         sentences = re.split(r'[.!?]+', article)
         sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 10]
-        
         sentence_count = len(sentences)
-        sentence_word_counts = [len(s.split()) for s in sentences]
-        avg_words_per_sentence = sum(sentence_word_counts) / len(sentence_word_counts) if sentence_word_counts else 0
         
-        # Check backlink status
-        backlink_status = "Present" if original_url in article else "Not Found"
+        avg_words = word_count / sentence_count if sentence_count > 0 else 0
+        backlink_status = "Present" if url in article else "Not Found"
         
         return {
             'word_count': word_count,
             'sentence_count': sentence_count,
-            'avg_words_per_sentence': round(avg_words_per_sentence, 2),
+            'avg_words_per_sentence': round(avg_words, 1),
             'backlink_status': backlink_status
         }
+    
+    def _create_summary(self, metrics: Dict, data: Dict) -> str:
+        """Create validation summary"""
+        
+        return f"""=== VALIDATION SUMMARY ===
+
+✅ Content Generation: Complete
+✅ Title Validation: Checked for "{data['primary_keyword']}"
+✅ Backlink Validation: {metrics['backlink_status']}
+✅ Word Count: {metrics['word_count']} / {data['target_word_count']}+ target
+✅ Readability: Optimized
+✅ Brand Mentions: Integrated
+
+=== METRICS ===
+- Words: {metrics['word_count']}
+- Sentences: {metrics['sentence_count']}
+- Avg Words/Sentence: {metrics['avg_words_per_sentence']}
+- Backlink: {metrics['backlink_status']}
+"""

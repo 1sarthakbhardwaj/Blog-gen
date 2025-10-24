@@ -220,11 +220,16 @@ with col_api2:
         gemini_model = st.selectbox(
             "Gemini Model",
             [
-                "gemini/gemini-2.0-flash-exp (Recommended - Latest & Fastest)",
-                "gemini/gemini-1.5-pro (Most Capable)",
-                "gemini/gemini-1.5-flash (Fast & Efficient)"
+                "gemini/gemini-2.0-flash-exp (Recommended - Latest & Fastest, 15 RPM)",
+                "gemini/gemini-2.0-flash-lite (Light & Fast, 30 RPM)",
+                "gemini/gemini-2.0-flash (Stable, 15 RPM)",
+                "gemini/gemini-2.5-flash-lite (Enhanced Light, 15 RPM)",
+                "gemini/gemini-2.5-flash (Enhanced, 10 RPM)",
+                "gemini/gemini-2.5-pro (Most Capable, 2 RPM)",
+                "gemini/gemini-1.5-pro (Legacy Pro, Free)",
+                "gemini/gemini-1.5-flash (Legacy Flash, Free)"
             ],
-            help="Gemini 2.0 Flash Experimental is recommended for best results"
+            help="Gemini 2.0 Flash Experimental is recommended for best speed and quality"
         )
         selected_model = gemini_model.split(" (")[0]
         
@@ -308,6 +313,13 @@ with col1:
     
     st.markdown("---")
     
+    # Optional: Auto-scrape toggle
+    enable_scraping = st.checkbox(
+        "🔬 Enable automatic content scraping",
+        value=False,
+        help="Automatically extract content from URLs"
+    )
+    
     # Original Article
     st.markdown("**Original Article (Your Content)** *")
     original_article_url = st.text_input(
@@ -317,11 +329,26 @@ with col1:
         help="This link will be embedded in the new article"
     )
     
+    # Add scrape button for original article
+    if enable_scraping and original_article_url:
+        col_scrape1, col_scrape2 = st.columns([1, 3])
+        with col_scrape1:
+            if st.button("📥 Scrape Original", key="scrape_original"):
+                with st.spinner("Scraping your article..."):
+                    result = scrape_article(original_article_url)
+                    if result['error']:
+                        st.error(f"❌ Error: {result['error']}")
+                        st.session_state['original_content'] = ""
+                    else:
+                        st.session_state['original_content'] = result['content']
+                        st.success(f"✅ Scraped {len(result['content'])} characters from your article!")
+    
     original_article_content = st.text_area(
         "Article Content",
-        placeholder="Paste your original article content here...",
+        placeholder="Paste your original article content here... Or use the scrape button above",
         height=250,
         key="original_content",
+        value=st.session_state.get('original_content', ''),
         help="Your article that will be used as the primary source (60-70% weight)"
     )
     
@@ -329,13 +356,6 @@ with col1:
     
     # Competitor Articles
     st.markdown('<div class="section-header">🎯 Competitor Articles</div>', unsafe_allow_html=True)
-    
-    # Optional: Auto-scrape toggle (disabled for now)
-    enable_scraping = st.checkbox(
-        "🔬 Enable automatic content scraping (Experimental)",
-        value=False,
-        help="Automatically extract content from competitor URLs"
-    )
     
     competitor_articles = []
     
@@ -439,11 +459,11 @@ if generate_button:
         # Processing UI
         st.markdown("""
             <div class="info-box">
-                <h3>🤖 AI Agents Working...</h3>
-                <p>The multi-agent workflow is analyzing content and generating your article.</p>
+                <h3>🤖 AI Processing...</h3>
+                <p>Analyzing content and generating your article step by step.</p>
                 <p style="margin-top: 0.5rem; font-size: 0.875rem;">
-                    <strong>Process:</strong> Content Synthesis → Title Validation → Backlink Validation → 
-                    Word Count Check → Readability Optimization → Brand Integration
+                    <strong>Steps:</strong> Article Generation → Title Check → Backlink Validation → 
+                    Word Count → Readability → Brand Mentions
                 </p>
             </div>
         """, unsafe_allow_html=True)
@@ -597,7 +617,7 @@ if st.session_state.generated_article:
 st.markdown("---")
 st.markdown("""
     <div style="text-align: center; color: #718096; padding: 1rem;">
-        <p><strong>Backlink Article Generator</strong> | Powered by CrewAI & Gemini 2.0 Flash | v2.0</p>
+        <p><strong>Backlink Article Generator</strong> | Powered by AI (Gemini & OpenAI) | v2.1</p>
         <p style="font-size: 0.875rem;">Generate SEO-optimized content with natural backlinks and competitor analysis</p>
     </div>
 """, unsafe_allow_html=True)

@@ -99,7 +99,7 @@ Generated articles will:
 
 **"At least one competitor required"** → Add content to competitor sections
 
-**Generation too slow** → Use Gemini 2.0 Flash (fastest model)
+**Generation too slow** → Use Gemini 2.0 Flash Lite (fastest model, 30 RPM)
 
 ## License
 
